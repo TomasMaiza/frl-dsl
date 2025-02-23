@@ -1,0 +1,27 @@
+cabal-version:      3.0
+name:               tp
+version:            0.1.0.0
+synopsis:           DSL para funciones recursivas de listas
+-- description:
+license:            BSD-3-Clause
+license-file:       LICENSE
+author:             tomasmaiza
+maintainer:         tomimaiza@gmail.com
+-- copyright:
+category:           Language
+build-type:         Simple
+extra-doc-files:    CHANGELOG.md
+-- extra-source-files:
+
+common warnings
+    ghc-options: -Wall
+
+executable tp
+    import:           warnings
+    main-is:          Main.hs
+    other-modules:    AST, Eval, Monads
+    -- other-extensions:
+    default-extensions: TypeOperators
+    build-depends:    base ^>=4.17.2.1, strict, containers, mtl
+    hs-source-dirs:   src, app
+    default-language: Haskell2010
