@@ -30,10 +30,19 @@ data Op
 -- Funciones
 data Fun
   = Op Op
-  | Comp Op Fun
+  -- | Id -- Función identidad como auxiliar para resolver recursión a izquierda en la composición
   | Repeat Fun
+  -- | Comp Id Fun'
+  | Comp Fun Fun
   deriving (Show, Eq)
 
 data Error = DomainErr | UndefVar deriving (Eq, Show)
 
 type Trace = String
+
+{-
+Fun -> Fun Fun | Id
+-------------------
+Fun -> Id Fun'
+Fun' -> ε | Fun Fun'
+-}

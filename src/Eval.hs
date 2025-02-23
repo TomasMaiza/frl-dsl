@@ -4,6 +4,7 @@ module Eval
   , Env
   , initEnv
   , runState
+  , eval'
   )
 where
 
@@ -59,6 +60,10 @@ eval p = snd (runState p initEnv)-}
 
 eval :: Fun -> List -> Env
 eval f ls = snd $ runState (evalFun f ls) initEnv
+
+eval' :: Fun -> List -> List
+eval' f ls = fst $ runState (evalFun f ls) initEnv
+
 
 evalFun :: MonadState m => Fun -> List -> m List
 evalFun (Op LeftZero) ls = case ls of
@@ -120,15 +125,14 @@ evalFun (Repeat f) ls = case ls of
                                              evalFun (Repeat f) zs
                           Var v -> do xs <- lookfor v
                                       evalFun (Repeat f) xs
-evalFun (Comp f g) ls = do zs <- evalFun (Op f) ls
+evalFun (Comp f g) ls = do zs <- evalFun f ls
                            evalFun g zs
-{-
-evalFun (MoveLeft ls) = case ls of
-                          --Nil -> error
-                          Unit x -> return (Unit x)
-                          Cons x zs y -> Concat (Unit y) (Concat (Unit x) zs)
-
--}
+evalFun (Op MoveLeft) ls = evalFun (Comp (Op LeftZero) (Comp (Repeat (Op LeftSucc)) (Op RightDel))) ls
+evalFun (Op MoveRight) ls = evalFun (Comp (Op RightZero) (Comp (Repeat (Op RightSucc)) (Op LeftDel))) ls
+evalFun (Op DupLeft) ls = evalFun (Comp (Op RightZero) (Comp (Repeat (Op RightSucc)) (Op MoveLeft))) ls
+evalFun (Op DupRight) ls = evalFun (Comp (Op LeftZero) (Comp (Repeat (Op LeftSucc)) (Op MoveRight))) ls
+evalFun (Op Swap) ls = let r = Repeat (Comp (Op LeftSucc) (Comp (Op MoveRight) (Comp (Op MoveRight) (Comp (Op LeftSucc) (Comp (Op MoveLeft) (Op MoveLeft))))))
+                       in evalFun (Comp (Op MoveRight) (Comp (Op LeftZero) (Comp (Op MoveLeft) (Comp r (Comp (Op RightDel) (Comp (Op LeftDel) (Op MoveRight))))))) ls
 
 evalConcat :: MonadState m => List -> m List
 evalConcat (Concat Nil ys) = return ys 
@@ -141,4 +145,5 @@ evalConcat (Concat (Cons x ls y) (Unit z)) = do zs <- evalConcat (Concat ls (Uni
 evalConcat (Concat (Cons x ls y) (Cons x' ls' y')) = do as <- evalConcat (Concat ls (Unit y))
                                                         bs <- evalConcat (Concat (Unit x') ls')
                                                         zs <- evalConcat (Concat as bs)
-                                                        return (Cons x zs y') 
+                                                        return (Cons x zs y')
+evalConcat ls = return ls
