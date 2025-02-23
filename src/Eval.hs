@@ -120,6 +120,8 @@ evalFun (Repeat f) ls = case ls of
                                              evalFun (Repeat f) zs
                           Var v -> do xs <- lookfor v
                                       evalFun (Repeat f) xs
+evalFun (Comp f g) ls = do zs <- evalFun (Op f) ls
+                           evalFun g zs
 {-
 evalFun (MoveLeft ls) = case ls of
                           --Nil -> error
