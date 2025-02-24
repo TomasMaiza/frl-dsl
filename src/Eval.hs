@@ -3,7 +3,7 @@ module Eval
   , eval
   , Env
   , initEnv
-  , runStateError
+  , runStateErrorTrace
   , eval'
   )
 where
@@ -27,52 +27,58 @@ type Env = M.Map Variable List
 initEnv :: Env
 initEnv = M.empty
 
--- Mónada estado con manejo de errores
-newtype StateError a =
-  StateError { runStateError :: Env -> Either Error (Pair a Env) }
+initTrace :: Trace
+initTrace = ""
 
--- Para calmar al GHC
-instance Functor StateError where
+-- Mónada de estado con manejo de errores y traza
+newtype StateErrorTrace a =
+  StateErrorTrace { runStateErrorTrace :: Env -> Trace -> Either Error (Pair a (Pair Env Trace)) }
+
+instance Monad StateErrorTrace where
+  return x = StateErrorTrace (\env t -> return (x :!: (env :!: t)))
+  m >>= f = StateErrorTrace (\env t -> do (x :!: (env' :!: t')) <- runStateErrorTrace m env t
+                                          runStateErrorTrace (f x) env' t')
+
+-- Recuerde agregar las siguientes instancias para calmar al GHC:
+instance Functor StateErrorTrace where
   fmap = liftM
 
-instance Applicative StateError where
+instance Applicative StateErrorTrace where
   pure  = return
   (<*>) = ap
 
--- Instancia de Monad para StateError:
-instance Monad StateError where
-  return x = StateError (\env -> return (x :!: env))
-  m >>= f = StateError (\env -> do (x :!: env') <- runStateError m env
-                                   runStateError (f x) env')
+-- Instancia de MonadTrace para StateErrorTrace.
+instance MonadTrace StateErrorTrace where
+  track str = StateErrorTrace (\env t -> return (() :!: (env :!: t ++ str)))
 
---  Instancia de MonadError para StateError:
-instance MonadError StateError where
-  throw e = StateError (\_ -> Left e)
+-- Instancia de MonadError para StateErrorTrace.
+instance MonadError StateErrorTrace where
+  throw e = StateErrorTrace (\env t -> Left e)
 
--- Instancia de MonadState para StateError:
-instance MonadState StateError where
-  lookfor v = StateError (\env -> lookfor' v env)
-    where lookfor' :: Variable -> Env -> Either Error (Pair List Env)
-          lookfor' v s = case M.lookup v s of
+-- Instancia de MonadState para StateErrorTrace.
+instance MonadState StateErrorTrace where
+  lookfor v = StateErrorTrace (\env t -> lookfor' v env t)
+    where lookfor' :: Variable -> Env -> Trace -> Either Error (Pair List (Pair Env Trace))
+          lookfor' v s t = case M.lookup v s of
                             Nothing -> Left UndefVar
-                            Just x -> Right (x :!: s)
-  update v i = StateError (\env -> return (() :!: M.insert v i env))
+                            Just x -> Right (x :!: (s :!: t))
+  update v i = StateErrorTrace (\env t -> return (() :!: (M.insert v i env :!: t)))
 
 {-
 eval :: Comm -> Either Error Env
 eval c = do (() :!: env) <- runStateError (stepCommStar c) initEnv
             return env-}
 
-eval :: Fun -> List -> Either Error Env
-eval f ls = do (_ :!: env) <- runStateError (evalFun f ls) initEnv
-               return env
+eval :: Fun -> List -> Either Error (Pair Env Trace)
+eval f ls = do (_ :!: (env :!: t)) <- runStateErrorTrace (evalFun f ls) initEnv initTrace
+               return (env :!: t)
 
 eval' :: Fun -> List -> Either Error List
-eval' f ls = do (xs :!: _) <- runStateError (evalFun f ls) initEnv
+eval' f ls = do (xs :!: _) <- runStateErrorTrace (evalFun f ls) initEnv initTrace
                 return xs
 
 
-evalFun :: (MonadState m, MonadError m) => Fun -> List -> m List
+evalFun :: (MonadState m, MonadError m, MonadTrace m) => Fun -> List -> m List
 evalFun (Op LeftZero) ls = case ls of
                             Nil -> return (Unit 0)
                             Unit x -> return (Cons 0 Nil x)
@@ -120,6 +126,7 @@ evalFun (Op RightSucc) ls = case ls of
                               Concat xs ys -> do zs <- evalFun (Op RightSucc) ys
                                                  return (Concat xs zs)
                               Var v -> do xs <- lookfor v
+                                          --track (show v ++ " = " ++ show xs ++ "; ")
                                           evalFun (Op RightSucc) xs
 evalFun (Repeat f) ls = case ls of
                           Nil -> throw DomainErr
@@ -127,12 +134,15 @@ evalFun (Repeat f) ls = case ls of
                           Cons x _ y -> if x == y
                                         then return ls
                                         else do zs <- evalFun f ls
+                                                track $ show zs ++ "; "
                                                 evalFun (Repeat f) zs
                           Concat _ _ -> do zs <- evalConcat ls
                                            evalFun (Repeat f) zs
                           Var v -> do xs <- lookfor v
+                                      --track (show v ++ " = " ++ show xs ++ "; ")
                                       evalFun (Repeat f) xs
 evalFun (Comp f g) ls = do zs <- evalFun f ls
+                           track $ show zs ++ "; "
                            evalFun g zs
 evalFun (Op MoveLeft) ls = evalFun (Comp (Op LeftZero) (Comp (Repeat (Op LeftSucc)) (Op RightDel))) ls
 evalFun (Op MoveRight) ls = evalFun (Comp (Op RightZero) (Comp (Repeat (Op RightSucc)) (Op LeftDel))) ls
@@ -141,7 +151,7 @@ evalFun (Op DupRight) ls = evalFun (Comp (Op LeftZero) (Comp (Repeat (Op LeftSuc
 evalFun (Op Swap) ls = let r = Repeat (Comp (Op LeftSucc) (Comp (Op MoveRight) (Comp (Op MoveRight) (Comp (Op LeftSucc) (Comp (Op MoveLeft) (Op MoveLeft))))))
                        in evalFun (Comp (Op MoveRight) (Comp (Op LeftZero) (Comp (Op MoveLeft) (Comp r (Comp (Op RightDel) (Comp (Op LeftDel) (Op MoveRight))))))) ls
 
-evalConcat :: (MonadState m, MonadError m) => List -> m List
+evalConcat :: (MonadState m, MonadError m, MonadTrace m) => List -> m List
 evalConcat (Concat Nil ys) = return ys 
 evalConcat (Concat xs Nil) = return xs
 evalConcat (Concat (Unit x) (Unit y)) = return (Cons x Nil y)
