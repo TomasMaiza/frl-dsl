@@ -30,9 +30,7 @@ data Op
 -- Funciones
 data Fun
   = Op Op
-  -- | Id -- Función identidad como auxiliar para resolver recursión a izquierda en la composición
   | Repeat Fun
-  -- | Comp Id Fun'
   | Comp Fun Fun
   deriving (Show, Eq)
 

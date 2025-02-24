@@ -3,7 +3,7 @@ module Eval
   , eval
   , Env
   , initEnv
-  , runState
+  , runStateError
   , eval'
   )
 where
@@ -27,49 +27,56 @@ type Env = M.Map Variable List
 initEnv :: Env
 initEnv = M.empty
 
--- Mónada estado
-newtype State a = State { runState :: Env -> Pair a Env }
-
-instance Monad State where
-  return x = State (\s -> (x :!: s))
-  m >>= f = State (\s -> let (v :!: s') = runState m s
-                         in runState (f v) s')
+-- Mónada estado con manejo de errores
+newtype StateError a =
+  StateError { runStateError :: Env -> Either Error (Pair a Env) }
 
 -- Para calmar al GHC
-instance Functor State where
+instance Functor StateError where
   fmap = liftM
 
-instance Applicative State where
+instance Applicative StateError where
   pure  = return
   (<*>) = ap
 
-instance MonadState State where
-  lookfor v = State (\s -> (lookfor' v s :!: s))
-    where lookfor' v s = fromJust $ M.lookup v s
-  update v i = State (\s -> (() :!: update' v i s)) where update' = M.insert
+-- Instancia de Monad para StateError:
+instance Monad StateError where
+  return x = StateError (\env -> return (x :!: env))
+  m >>= f = StateError (\env -> do (x :!: env') <- runStateError m env
+                                   runStateError (f x) env')
+
+--  Instancia de MonadError para StateError:
+instance MonadError StateError where
+  throw e = StateError (\_ -> Left e)
+
+-- Instancia de MonadState para StateError:
+instance MonadState StateError where
+  lookfor v = StateError (\env -> lookfor' v env)
+    where lookfor' :: Variable -> Env -> Either Error (Pair List Env)
+          lookfor' v s = case M.lookup v s of
+                            Nothing -> Left UndefVar
+                            Just x -> Right (x :!: s)
+  update v i = StateError (\env -> return (() :!: M.insert v i env))
+
+{-
+eval :: Comm -> Either Error Env
+eval c = do (() :!: env) <- runStateError (stepCommStar c) initEnv
+            return env-}
+
+eval :: Fun -> List -> Either Error Env
+eval f ls = do (_ :!: env) <- runStateError (evalFun f ls) initEnv
+               return env
+
+eval' :: Fun -> List -> Either Error List
+eval' f ls = do (xs :!: _) <- runStateError (evalFun f ls) initEnv
+                return xs
 
 
--- Evalua multiples pasos de un comando, hasta alcanzar un Skip
-{-stepFun:: MonadState m => Fun -> m ()
-stepFun Skip = return ()
-stepFun c    = stepComm c >>= \c' -> stepCommStar c'-}
-
--- Evalua un programa en el estado nulo
-{-eval :: Fun -> Env
-eval p = snd (runState p initEnv)-}
-
-eval :: Fun -> List -> Env
-eval f ls = snd $ runState (evalFun f ls) initEnv
-
-eval' :: Fun -> List -> List
-eval' f ls = fst $ runState (evalFun f ls) initEnv
-
-
-evalFun :: MonadState m => Fun -> List -> m List
+evalFun :: (MonadState m, MonadError m) => Fun -> List -> m List
 evalFun (Op LeftZero) ls = case ls of
                             Nil -> return (Unit 0)
                             Unit x -> return (Cons 0 Nil x)
-                            Cons x ls y -> return (Cons 0 (Concat (Unit x) ls) y)
+                            Cons x zs y -> return (Cons 0 (Concat (Unit x) zs) y)
                             Concat xs ys -> do zs <- evalFun (Op LeftZero) xs
                                                return (Concat zs ys)
                             Var v -> do xs <- lookfor v
@@ -77,52 +84,52 @@ evalFun (Op LeftZero) ls = case ls of
 evalFun (Op RightZero) ls = case ls of
                               Nil -> return (Unit 0)
                               Unit x -> return (Cons x Nil 0)
-                              Cons x ls y -> return (Cons x (Concat ls (Unit y)) 0)
+                              Cons x zs y -> return (Cons x (Concat zs (Unit y)) 0)
                               Concat xs ys -> do zs <- evalFun (Op RightZero) ys
                                                  return (Concat xs zs)
                               Var v -> do xs <- lookfor v
                                           evalFun (Op RightZero) xs
 evalFun (Op LeftDel) ls = case ls of
-                            --Nil -> error
-                            Unit x -> return Nil
-                            Cons x ls y -> return (Concat ls (Unit y))
+                            Nil -> throw DomainErr
+                            Unit _ -> return Nil
+                            Cons _ zs y -> return (Concat zs (Unit y))
                             Concat xs ys -> do zs <- evalFun (Op LeftDel) xs
                                                return (Concat zs ys)
                             Var v -> do xs <- lookfor v
                                         evalFun (Op LeftDel) xs
 evalFun (Op RightDel) ls = case ls of
-                            --Nil -> error
-                            Unit x -> return Nil
-                            Cons x ls y -> return (Concat (Unit x) ls)
+                            Nil -> throw DomainErr
+                            Unit _ -> return Nil
+                            Cons x zs _ -> return (Concat (Unit x) zs)
                             Concat xs ys -> do zs <- evalFun (Op RightDel) ys
                                                return (Concat xs zs)
                             Var v -> do xs <- lookfor v
                                         evalFun (Op RightDel) xs
 evalFun (Op LeftSucc) ls = case ls of
-                            --Nil -> error
+                            Nil -> throw DomainErr
                             Unit x -> return (Unit (x + 1))
-                            Cons x ls y -> return (Cons (x + 1) ls y)
+                            Cons x zs y -> return (Cons (x + 1) zs y)
                             Concat xs ys -> do zs <- evalFun (Op LeftSucc) xs
                                                return (Concat zs ys)
                             Var v -> do xs <- lookfor v
                                         evalFun (Op LeftSucc) xs
 evalFun (Op RightSucc) ls = case ls of
-                              --Nil -> error
+                              Nil -> throw DomainErr
                               Unit x -> return (Unit (x + 1))
-                              Cons x ls y -> return (Cons x ls (y + 1))
+                              Cons x zs y -> return (Cons x zs (y + 1))
                               Concat xs ys -> do zs <- evalFun (Op RightSucc) ys
                                                  return (Concat xs zs)
                               Var v -> do xs <- lookfor v
                                           evalFun (Op RightSucc) xs
 evalFun (Repeat f) ls = case ls of
-                          --Nil -> error
-                          --Unit _ -> error
-                          Cons x zs y -> if x == y
-                                         then return ls
-                                         else do zs <- evalFun f ls
-                                                 evalFun (Repeat f) zs
-                          Concat xs ys -> do zs <- evalConcat ls
-                                             evalFun (Repeat f) zs
+                          Nil -> throw DomainErr
+                          Unit _ -> throw DomainErr
+                          Cons x _ y -> if x == y
+                                        then return ls
+                                        else do zs <- evalFun f ls
+                                                evalFun (Repeat f) zs
+                          Concat _ _ -> do zs <- evalConcat ls
+                                           evalFun (Repeat f) zs
                           Var v -> do xs <- lookfor v
                                       evalFun (Repeat f) xs
 evalFun (Comp f g) ls = do zs <- evalFun f ls
@@ -134,7 +141,7 @@ evalFun (Op DupRight) ls = evalFun (Comp (Op LeftZero) (Comp (Repeat (Op LeftSuc
 evalFun (Op Swap) ls = let r = Repeat (Comp (Op LeftSucc) (Comp (Op MoveRight) (Comp (Op MoveRight) (Comp (Op LeftSucc) (Comp (Op MoveLeft) (Op MoveLeft))))))
                        in evalFun (Comp (Op MoveRight) (Comp (Op LeftZero) (Comp (Op MoveLeft) (Comp r (Comp (Op RightDel) (Comp (Op LeftDel) (Op MoveRight))))))) ls
 
-evalConcat :: MonadState m => List -> m List
+evalConcat :: (MonadState m, MonadError m) => List -> m List
 evalConcat (Concat Nil ys) = return ys 
 evalConcat (Concat xs Nil) = return xs
 evalConcat (Concat (Unit x) (Unit y)) = return (Cons x Nil y)
