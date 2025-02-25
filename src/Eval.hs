@@ -54,15 +54,15 @@ instance MonadTrace StateErrorTrace where
 
 -- Instancia de MonadError para StateErrorTrace.
 instance MonadError StateErrorTrace where
-  throw e = StateErrorTrace (\env t -> Left e)
+  throw e = StateErrorTrace (\_ _ -> Left e)
 
 -- Instancia de MonadState para StateErrorTrace.
 instance MonadState StateErrorTrace where
   lookfor v = StateErrorTrace (\env t -> lookfor' v env t)
     where lookfor' :: Variable -> Env -> Trace -> Either Error (Pair List (Pair Env Trace))
-          lookfor' v s t = case M.lookup v s of
-                            Nothing -> Left UndefVar
-                            Just x -> Right (x :!: (s :!: t))
+          lookfor' v' s t = case M.lookup v' s of
+                              Nothing -> Left UndefVar
+                              Just x -> Right (x :!: (s :!: t))
   update v i = StateErrorTrace (\env t -> return (() :!: (M.insert v i env :!: t)))
 
 {-
@@ -94,7 +94,8 @@ stepComm Skip = return Skip
 stepComm (LetList v ls) = do update v ls
                              track $ v ++ " = " ++ show ls ++ "; "
                              return Skip
-stepComm (App f ls) = do xs <- evalFun f ls
+stepComm (App f ls) = do xs <- evalFun f ls -- otra opción es trackear "f ls = xs"
+                         track $ show f ++ " " ++ show ls ++ " = " ++ show xs ++ "; "
                          return Skip
 stepComm (Seq Skip c2) = stepComm c2 
 stepComm (Seq c1 c2) = do x <- stepComm c1
@@ -170,8 +171,18 @@ evalFun (Op MoveLeft) ls = evalFun (Comp (Op LeftZero) (Comp (Repeat (Op LeftSuc
 evalFun (Op MoveRight) ls = evalFun (Comp (Op RightZero) (Comp (Repeat (Op RightSucc)) (Op LeftDel))) ls
 evalFun (Op DupLeft) ls = evalFun (Comp (Op RightZero) (Comp (Repeat (Op RightSucc)) (Op MoveLeft))) ls
 evalFun (Op DupRight) ls = evalFun (Comp (Op LeftZero) (Comp (Repeat (Op LeftSucc)) (Op MoveRight))) ls
+evalFun (Op Swap) ls = case ls of
+                        Nil -> throw DomainErr
+                        Unit _ -> throw DomainErr
+                        Cons x xs y -> return (Cons y xs x)
+                        Concat _ _ -> do zs <- evalConcat ls
+                                         evalFun (Op Swap) zs
+                        Var v -> do xs <- lookfor v
+                                    evalFun (Op Swap) xs
+{-
 evalFun (Op Swap) ls = let r = Repeat (Comp (Op LeftSucc) (Comp (Op MoveRight) (Comp (Op MoveRight) (Comp (Op LeftSucc) (Comp (Op MoveLeft) (Op MoveLeft))))))
                        in evalFun (Comp (Op MoveRight) (Comp (Op LeftZero) (Comp (Op MoveLeft) (Comp r (Comp (Op RightDel) (Comp (Op LeftDel) (Op MoveRight))))))) ls
+-}
 
 evalConcat :: (MonadState m, MonadError m, MonadTrace m) => List -> m List
 evalConcat (Concat Nil ys) = return ys 
