@@ -97,6 +97,10 @@ stepComm (LetList v ls) = do update v ls
 stepComm (App f ls) = do xs <- evalFun f ls -- otra opción es trackear "f ls = xs"
                          track $ show f ++ " " ++ show ls ++ " = " ++ show xs ++ "; "
                          return Skip
+stepComm (LetListFun v f ls) = do xs <- evalFun f ls
+                                  update v xs
+                                  track $ v ++ " = " ++ show xs ++ "; "
+                                  return Skip
 stepComm (Seq Skip c2) = stepComm c2 
 stepComm (Seq c1 c2) = do x <- stepComm c1
                           stepComm (Seq x c2)

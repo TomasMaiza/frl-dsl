@@ -38,6 +38,7 @@ data Fun
 data Comm
   = App Fun List
   | LetList Variable List
+  | LetListFun Variable Fun List
   | Seq Comm Comm
   | Skip
 
