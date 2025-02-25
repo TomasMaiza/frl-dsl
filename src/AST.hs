@@ -34,6 +34,13 @@ data Fun
   | Comp Fun Fun
   deriving (Show, Eq)
 
+-- Comandos
+data Comm
+  = App Fun List
+  | LetList Variable List
+  | Seq Comm Comm
+  | Skip
+
 data Error = DomainErr | UndefVar deriving (Eq, Show)
 
 type Trace = String

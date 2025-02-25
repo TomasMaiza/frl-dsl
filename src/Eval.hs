@@ -4,7 +4,8 @@ module Eval
   , Env
   , initEnv
   , runStateErrorTrace
-  , eval'
+  --, eval'
+  -- borrar todo y dejar solo eval y Env
   )
 where
 
@@ -65,18 +66,39 @@ instance MonadState StateErrorTrace where
   update v i = StateErrorTrace (\env t -> return (() :!: (M.insert v i env :!: t)))
 
 {-
-eval :: Comm -> Either Error Env
-eval c = do (() :!: env) <- runStateError (stepCommStar c) initEnv
-            return env-}
+eval' :: Comm -> Either Error List
+eval' c = do (xs :!: _) <- runStateErrorTrace (stepCommStar c) initEnv initTrace
+             return xs-}
 
+{-
 eval :: Fun -> List -> Either Error (Pair Env Trace)
 eval f ls = do (_ :!: (env :!: t)) <- runStateErrorTrace (evalFun f ls) initEnv initTrace
                return (env :!: t)
 
 eval' :: Fun -> List -> Either Error List
 eval' f ls = do (xs :!: _) <- runStateErrorTrace (evalFun f ls) initEnv initTrace
-                return xs
+                return xs-}
 
+eval :: Comm -> Either Error (Pair Env Trace)
+eval c = do (() :!: (env :!: t)) <- runStateErrorTrace (stepCommStar c) initEnv initTrace
+            return (env :!: t)
+
+-- Evalua multiples pasos de un comando, hasta alcanzar un Skip
+stepCommStar :: (MonadState m, MonadError m, MonadTrace m) => Comm -> m ()
+stepCommStar Skip = return ()
+stepCommStar c    = stepComm c >>= \c' -> stepCommStar c'
+
+-- Evalua un paso de un comando
+stepComm :: (MonadState m, MonadError m, MonadTrace m) => Comm -> m Comm
+stepComm Skip = return Skip
+stepComm (LetList v ls) = do update v ls
+                             track $ v ++ " = " ++ show ls ++ "; "
+                             return Skip
+stepComm (App f ls) = do xs <- evalFun f ls
+                         return Skip
+stepComm (Seq Skip c2) = stepComm c2 
+stepComm (Seq c1 c2) = do x <- stepComm c1
+                          stepComm (Seq x c2)
 
 evalFun :: (MonadState m, MonadError m, MonadTrace m) => Fun -> List -> m List
 evalFun (Op LeftZero) ls = case ls of
