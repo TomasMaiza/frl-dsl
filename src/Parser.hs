@@ -57,6 +57,32 @@ parseElem :: Parser List
 parseElem = do x <- natural frl
                return (Unit $ fromIntegral x)
 
+parseElems :: Parser List
+parseElems = undefined
+
+-- Parser de funciones
+
+fun :: Parser Fun
+fun = do fs <- many1 parseOp
+         return $ comp fs
+          where
+            comp [x] = x
+            comp (x:y:[]) = Comp x y
+            comp (x:xs) = Comp x (comp xs) 
+
+parseOp :: Parser Fun
+parseOp = (do {reservedOp frl "0i"; return (Op LeftZero)})
+          <|> (do {reservedOp frl "0d"; return (Op RightZero)})
+          <|> (do {reservedOp frl "Bi"; return (Op LeftDel)})
+          <|> (do {reservedOp frl "Bd"; return (Op RightDel)})
+          <|> (do {reservedOp frl "Si"; return (Op LeftSucc)})
+          <|> (do {reservedOp frl "Sd"; return (Op RightSucc)})
+          <|> (do {reservedOp frl "Di"; return (Op DupLeft)})
+          <|> (do {reservedOp frl "Dd"; return (Op DupRight)})
+          <|> (do {reservedOp frl "<->"; return (Op Swap)})
+          <|> (do {reservedOp frl "<-"; return (Op MoveLeft)})
+          <|> (do {reservedOp frl "->"; return (Op MoveRight)})
+
 ------------------------------------
 -- Función de parseo
 ------------------------------------
