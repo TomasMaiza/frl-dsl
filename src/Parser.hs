@@ -53,12 +53,17 @@ list :: Parser List
 list = brackets frl (try parseElems
                          <|> return Nil) 
 
-parseElem :: Parser List
-parseElem = do x <- natural frl
-               return $ Unit $ fromIntegral x
+parseNat :: Parser List
+parseNat = do x <- natural frl
+              return $ Unit $ fromIntegral x
 
 parseElems :: Parser List
-parseElems = chainl1 parseElem (do {reservedOp frl ","; return Concat})
+parseElems = chainl1 (do {parseNat <|> parseVar}) (do {reservedOp frl ","; return Concat})
+
+parseVar :: Parser List
+parseVar = do v <- identifier frl
+              return (Var v)
+
 
 -- Parser de funciones
 
