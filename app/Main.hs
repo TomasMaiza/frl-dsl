@@ -14,7 +14,7 @@ main = do
   case args of
     [filename] -> do input <- readFile filename
                      case parseComm filename input of
-                      Left err -> putStrLn $ "Error de parsing:\n" ++ show err
+                      Left err -> putStrLn $ "Parsing error:\n" ++ show err
                       Right ast -> do let result = eval ast
                                       print result
-    _ -> putStrLn "Uso: ./programa archivo.frl"
+    _ -> putStrLn "Use: cabal run tp -- pathToFile"
