@@ -4,6 +4,7 @@ module Eval
   , Env
   , initEnv
   , runStateErrorTrace
+  , evalConcat
   --, eval'
   -- borrar todo y dejar solo eval y Env
   )
@@ -106,52 +107,46 @@ stepComm (Seq c1 c2) = do x <- stepComm c1
                           stepComm (Seq x c2)
 
 evalFun :: (MonadState m, MonadError m, MonadTrace m) => Fun -> List -> m List
+evalFun f ls@(Concat _ _) = do zs <- evalConcat ls
+                               evalFun f zs
 evalFun (Op LeftZero) ls = case ls of
                             Nil -> return (Unit 0)
                             Unit x -> return (Cons 0 Nil x)
-                            Cons x zs y -> return (Cons 0 (Concat (Unit x) zs) y)
-                            Concat xs ys -> do zs <- evalFun (Op LeftZero) xs
-                                               return (Concat zs ys)
+                            Cons x zs y -> do cs <- evalConcat (Concat (Unit x) zs)
+                                              return (Cons 0 cs y)
                             Var v -> do xs <- lookfor v
                                         evalFun (Op LeftZero) xs
 evalFun (Op RightZero) ls = case ls of
                               Nil -> return (Unit 0)
                               Unit x -> return (Cons x Nil 0)
-                              Cons x zs y -> return (Cons x (Concat zs (Unit y)) 0)
-                              Concat xs ys -> do zs <- evalFun (Op RightZero) ys
-                                                 return (Concat xs zs)
+                              Cons x zs y -> do cs <- evalConcat (Concat zs (Unit y))
+                                                return (Cons x cs 0)
                               Var v -> do xs <- lookfor v
                                           evalFun (Op RightZero) xs
 evalFun (Op LeftDel) ls = case ls of
                             Nil -> throw DomainErr
                             Unit _ -> return Nil
-                            Cons _ zs y -> return (Concat zs (Unit y))
-                            Concat xs ys -> do zs <- evalFun (Op LeftDel) xs
-                                               return (Concat zs ys)
+                            Cons _ zs y -> do cs <- evalConcat (Concat zs (Unit y))
+                                              return cs
                             Var v -> do xs <- lookfor v
                                         evalFun (Op LeftDel) xs
 evalFun (Op RightDel) ls = case ls of
                             Nil -> throw DomainErr
                             Unit _ -> return Nil
-                            Cons x zs _ -> return (Concat (Unit x) zs)
-                            Concat xs ys -> do zs <- evalFun (Op RightDel) ys
-                                               return (Concat xs zs)
+                            Cons x zs _ -> do cs <- evalConcat (Concat (Unit x) zs)
+                                              return cs
                             Var v -> do xs <- lookfor v
                                         evalFun (Op RightDel) xs
 evalFun (Op LeftSucc) ls = case ls of
                             Nil -> throw DomainErr
                             Unit x -> return (Unit (x + 1))
                             Cons x zs y -> return (Cons (x + 1) zs y)
-                            Concat xs ys -> do zs <- evalFun (Op LeftSucc) xs
-                                               return (Concat zs ys)
                             Var v -> do xs <- lookfor v
                                         evalFun (Op LeftSucc) xs
 evalFun (Op RightSucc) ls = case ls of
                               Nil -> throw DomainErr
                               Unit x -> return (Unit (x + 1))
                               Cons x zs y -> return (Cons x zs (y + 1))
-                              Concat xs ys -> do zs <- evalFun (Op RightSucc) ys
-                                                 return (Concat xs zs)
                               Var v -> do xs <- lookfor v
                                           --track (show v ++ " = " ++ show xs ++ "; ")
                                           evalFun (Op RightSucc) xs
@@ -163,8 +158,6 @@ evalFun (Repeat f) ls = case ls of
                                         else do zs <- evalFun f ls
                                                 track $ show zs ++ "; "
                                                 evalFun (Repeat f) zs
-                          Concat _ _ -> do zs <- evalConcat ls
-                                           evalFun (Repeat f) zs
                           Var v -> do xs <- lookfor v
                                       --track (show v ++ " = " ++ show xs ++ "; ")
                                       evalFun (Repeat f) xs
@@ -179,8 +172,6 @@ evalFun (Op Swap) ls = case ls of
                         Nil -> throw DomainErr
                         Unit _ -> throw DomainErr
                         Cons x xs y -> return (Cons y xs x)
-                        Concat _ _ -> do zs <- evalConcat ls
-                                         evalFun (Op Swap) zs
                         Var v -> do xs <- lookfor v
                                     evalFun (Op Swap) xs
 {-
@@ -200,4 +191,8 @@ evalConcat (Concat (Cons x ls y) (Cons x' ls' y')) = do as <- evalConcat (Concat
                                                         bs <- evalConcat (Concat (Unit x') ls')
                                                         zs <- evalConcat (Concat as bs)
                                                         return (Cons x zs y')
+evalConcat (Concat xs@(Concat _ _) ys) = do xs' <- evalConcat xs
+                                            evalConcat (Concat xs' ys)
+evalConcat (Concat xs ys@(Concat _ _)) = do ys' <- evalConcat ys
+                                            evalConcat (Concat xs ys')                                           
 evalConcat ls = return ls
