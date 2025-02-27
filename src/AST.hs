@@ -41,6 +41,7 @@ data Comm
   | LetListFun Variable Fun List
   | Seq Comm Comm
   | Skip
+  deriving (Show, Eq)
 
 data Error = DomainErr | UndefVar deriving (Eq, Show)
 

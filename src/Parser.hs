@@ -85,10 +85,51 @@ parseRepeat = do reservedOp frl "<"
                  reservedOp frl ">"
                  return (Repeat f)
 
+
+-- Parser de comandos
+
+comm :: Parser Comm
+comm = chainl1 comm' (do {reservedOp frl ";"; return Seq})
+
+comm' :: Parser Comm
+comm' = try parseSkip <|> try parseLet <|> parseApp
+
+parseSkip :: Parser Comm
+parseSkip = do reserved frl "skip"
+               return Skip
+
+parseLet :: Parser Comm
+parseLet = do v <- identifier frl
+              reservedOp frl "="
+              try (do {ls <- list; return (LetList v ls)})
+                   <|> (do {f <- fun; ls <- list; return (LetListFun v f ls)})
+
+parseApp :: Parser Comm
+parseApp = do f <- fun
+              ls <- list
+              return (App f ls)
+
+{-
+parseIf :: Parser Comm
+parseIf = do reserved lis "if"
+             b <- boolexp
+             c1 <- braces lis comm
+             try (do reserved lis "else"
+                     c2 <- braces lis comm
+                     return (IfThenElse b c1 c2))
+                  <|> return (IfThen b c1)
+
+parseRepeat :: Parser Comm
+parseRepeat = do reserved lis "repeat"
+                 c <- braces lis comm
+                 reserved lis "until"
+                 b <- boolexp
+                 return (RepeatUntil c b) -}
+
 ------------------------------------
 -- Función de parseo
 ------------------------------------
-{-
+
 parseComm :: SourceName -> String -> Either ParseError Comm
 parseComm = parse (totParser comm)
--}
+
