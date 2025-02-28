@@ -21,6 +21,16 @@ main :: IO ()
 main = do
   args <- Env.getArgs
   case args of
+    [input] -> case input !! 0 of
+                '-' -> case input of
+                        "-i" -> putStrLn "ok"
+                        _ -> putStrLn use
+                _ -> do content <- readFile input
+                        case parseComm input content of
+                          Left err -> putStrLn $ "Parsing error:\n" ++ show err
+                          Right ast -> case eval ast noTrace of
+                                          Left err -> putStrLn $ renderError err
+                                          Right trace -> putStrLn $ renderTrace trace
     [filename, opt] -> do input <- readFile filename
                           case parseComm filename input of
                             Left err -> putStrLn $ "Parsing error:\n" ++ show err
@@ -32,9 +42,6 @@ main = do
                                                     Left err -> putStrLn $ renderError err
                                                     Right trace -> putStrLn $ renderTrace trace
                                           _ -> putStrLn use
-    [opt] -> case opt of
-              "-i" -> putStrLn "ok"
-              _ -> putStrLn use
     _ -> putStrLn use
     -- podría hacer otro patrón que sea [filename, option]? y que option sea una bandera tipo -i
 
