@@ -8,6 +8,7 @@ import           System.Console.GetOpt
 import qualified System.Environment            as Env
 import           System.Exit
 import           Control.Monad                  ( when )
+import           System.IO (hFlush, stdout)
 
 {-
 main :: IO ()
@@ -23,7 +24,8 @@ main = do
   case args of
     [input] -> case input !! 0 of
                 '-' -> case input of
-                        "-i" -> putStrLn "ok"
+                        "-i" -> do putStrLn "Entering interactive mode. Enter :q to exit."
+                                   repl
                         _ -> putStrLn use
                 _ -> do content <- readFile input
                         case parseComm input content of
@@ -43,30 +45,19 @@ main = do
                                                     Right trace -> putStrLn $ renderTrace trace
                                           _ -> putStrLn use
     _ -> putStrLn use
-    -- podría hacer otro patrón que sea [filename, option]? y que option sea una bandera tipo -i
 
---  read-eval-print loop
-{-
-readevalprint :: [String] -> Bool -> String -> InputT IO ()
-readevalprint args inter lfile =
-  let rec st = do
-        mx <- MC.catch
-          (if inter then getInputLine iprompt else lift $ fmap Just getLine)
-          (lift . ioExceptionCatcher)
-        case mx of
-          Nothing -> return ()
-          Just "" -> rec st
-          Just x  -> do
-            c   <- interpretCommand x
-            st' <- handleCommand st c
-            maybe (return ()) rec st'
-  in  do
-        state' <- compileFiles (prelude : args) state
-        when inter $ lift $ putStrLn
-          (  "Intérprete de "
-          ++ iname
-          ++ ".\n"
-          ++ "Escriba :? para recibir ayuda."
-          )
-        --  enter loop
-        rec state' { inter = True } -}
+-- Bucle interactivo
+repl :: IO ()
+repl = do
+  putStr "frl> " 
+  hFlush stdout
+  input <- getLine
+  case input of
+    ":q" -> putStrLn "Bye!"
+    _ -> do
+      case parseComm "<stdin>" input of
+        Left err -> putStrLn $ "Error de parsing: " ++ show err
+        Right ast -> case eval ast interactive of
+                       Left err -> putStrLn $ renderError err
+                       Right trace -> putStrLn $ renderTrace trace
+      repl  -- Volver a pedir entrada
