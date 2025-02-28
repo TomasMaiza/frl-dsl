@@ -50,6 +50,16 @@
   (major1) == 3 && (major2) <  1 || \
   (major1) == 3 && (major2) == 1 && (minor) <= 16)
 #endif /* MIN_VERSION_parsec */
+/* package pretty-1.1.3.6 */
+#ifndef VERSION_pretty
+#define VERSION_pretty "1.1.3.6"
+#endif /* VERSION_pretty */
+#ifndef MIN_VERSION_pretty
+#define MIN_VERSION_pretty(major1,major2,minor) (\
+  (major1) <  1 || \
+  (major1) == 1 && (major2) <  1 || \
+  (major1) == 1 && (major2) == 1 && (minor) <= 3)
+#endif /* MIN_VERSION_pretty */
 /* package strict-0.5.1 */
 #ifndef VERSION_strict
 #define VERSION_strict "0.5.1"

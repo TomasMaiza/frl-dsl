@@ -45,7 +45,14 @@ data Comm
 
 data Error = DomainErr | UndefVar deriving (Eq, Show)
 
-type Trace = String
+data Trace
+  = TLetList Variable List
+  | TApp Fun List List
+  | TList List
+  | TCons Trace Trace
+  | TNil
+  deriving (Show, Eq)
+
 
 {-
 Fun -> Fun Fun | Id

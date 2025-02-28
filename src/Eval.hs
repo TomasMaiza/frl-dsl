@@ -30,7 +30,7 @@ initEnv :: Env
 initEnv = M.empty
 
 initTrace :: Trace
-initTrace = ""
+initTrace = TNil
 
 -- Mónada de estado con manejo de errores y traza
 newtype StateErrorTrace a =
@@ -51,7 +51,7 @@ instance Applicative StateErrorTrace where
 
 -- Instancia de MonadTrace para StateErrorTrace.
 instance MonadTrace StateErrorTrace where
-  track str = StateErrorTrace (\env t -> return (() :!: (env :!: t ++ str)))
+  track xs = StateErrorTrace (\env t -> return (() :!: (env :!: TCons t xs)))
 
 -- Instancia de MonadError para StateErrorTrace.
 instance MonadError StateErrorTrace where
@@ -66,23 +66,11 @@ instance MonadState StateErrorTrace where
                               Just x -> Right (x :!: (s :!: t))
   update v i = StateErrorTrace (\env t -> return (() :!: (M.insert v i env :!: t)))
 
-{-
-eval' :: Comm -> Either Error List
-eval' c = do (xs :!: _) <- runStateErrorTrace (stepCommStar c) initEnv initTrace
-             return xs-}
+-- Evaluador
 
-{-
-eval :: Fun -> List -> Either Error (Pair Env Trace)
-eval f ls = do (_ :!: (env :!: t)) <- runStateErrorTrace (evalFun f ls) initEnv initTrace
-               return (env :!: t)
-
-eval' :: Fun -> List -> Either Error List
-eval' f ls = do (xs :!: _) <- runStateErrorTrace (evalFun f ls) initEnv initTrace
-                return xs-}
-
-eval :: Comm -> Either Error (Pair Env Trace)
-eval c = do (() :!: (env :!: t)) <- runStateErrorTrace (stepCommStar c) initEnv initTrace
-            return (env :!: t)
+eval :: Comm -> Either Error Trace
+eval c = do (() :!: (_ :!: t)) <- runStateErrorTrace (stepCommStar c) initEnv initTrace
+            return t
 
 -- Evalua multiples pasos de un comando, hasta alcanzar un Skip
 stepCommStar :: (MonadState m, MonadError m, MonadTrace m) => Comm -> m ()
@@ -93,14 +81,14 @@ stepCommStar c    = stepComm c >>= \c' -> stepCommStar c'
 stepComm :: (MonadState m, MonadError m, MonadTrace m) => Comm -> m Comm
 stepComm Skip = return Skip
 stepComm (LetList v ls) = do update v ls
-                             track $ v ++ " = " ++ show ls ++ "; "
+                             track $ TLetList v ls
                              return Skip
 stepComm (App f ls) = do xs <- evalFun f ls -- otra opción es trackear "f ls = xs"
-                         track $ show f ++ " " ++ show ls ++ " = " ++ show xs ++ "; "
+                         track $ TApp f ls xs
                          return Skip
 stepComm (LetListFun v f ls) = do xs <- evalFun f ls
                                   update v xs
-                                  track $ v ++ " = " ++ show xs ++ "; "
+                                  track $ TLetList v xs
                                   return Skip
 stepComm (Seq Skip c2) = stepComm c2 
 stepComm (Seq c1 c2) = do x <- stepComm c1
@@ -156,13 +144,13 @@ evalFun (Repeat f) ls = case ls of
                           Cons x _ y -> if x == y
                                         then return ls
                                         else do zs <- evalFun f ls
-                                                track $ show zs ++ "; "
+                                                track $ TApp f ls zs
                                                 evalFun (Repeat f) zs
                           Var v -> do xs <- lookfor v
                                       --track (show v ++ " = " ++ show xs ++ "; ")
                                       evalFun (Repeat f) xs
 evalFun (Comp f g) ls = do zs <- evalFun f ls
-                           track $ show zs ++ "; "
+                           track $ TApp f ls zs
                            evalFun g zs
 evalFun (Op MoveLeft) ls = evalFun (Comp (Op LeftZero) (Comp (Repeat (Op LeftSucc)) (Op RightDel))) ls
 evalFun (Op MoveRight) ls = evalFun (Comp (Op RightZero) (Comp (Repeat (Op RightSucc)) (Op LeftDel))) ls
