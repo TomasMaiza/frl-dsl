@@ -10,11 +10,6 @@ tabW = 2
 pVar :: Variable -> Doc
 pVar = text
 
-{-
-(Cons 0 (Cons 3 Nil 1) 3)
-[0, (Cons 3 Nil 1), 3]
-[0,  ] -}
-
 pList :: List -> Doc
 pList Nil = text "[]"
 pList (Unit x) = brackets $ int x
@@ -58,7 +53,8 @@ pComm (Seq c1 c2) = pComm c1 <> semi $$ pComm c2
 pComm (App f ls) = pFun f <+> pList ls
 
 pError :: Error -> Doc
-pError = undefined -- hace falta?
+pError (UndefVar v) = text "Runtime error: variable" <+> doubleQuotes (pVar v) <+> text "undefined"
+pError (DomainErr ls f) = text "Runtime error: domain error at" <+> pComm (App f ls)
 
 pTrace :: Trace -> Doc
 pTrace (TLetList v ls) = pVar v <+> text "=" <+> pList ls $$ empty
@@ -78,3 +74,6 @@ renderList = render . pList
 
 renderTrace :: Trace -> String
 renderTrace = render . pTrace
+
+renderError :: Error -> String
+renderError = render . pError

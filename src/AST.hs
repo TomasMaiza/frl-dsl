@@ -43,7 +43,7 @@ data Comm
   | Skip
   deriving (Show, Eq)
 
-data Error = DomainErr | UndefVar deriving (Eq, Show)
+data Error = DomainErr List Fun | UndefVar Variable deriving (Eq, Show)
 
 data Trace
   = TLetList Variable List

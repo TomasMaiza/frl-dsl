@@ -21,7 +21,7 @@ main = do
                      case parseComm filename input of
                       Left err -> putStrLn $ "Parsing error:\n" ++ show err
                       Right ast -> case eval ast noTrace of
-                                    Left err -> putStrLn $ "Runtime error:\n" ++ show err -- acá en lugar de show err hacer pp del error
+                                    Left err -> putStrLn $ renderError err
                                     Right trace -> putStrLn $ renderTrace trace
     _ -> putStrLn "Use: cabal run tp -- pathToFile"
     -- podría hacer otro patrón que sea [filename, option]? y que option sea una bandera tipo -i
