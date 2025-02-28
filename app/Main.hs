@@ -13,17 +13,29 @@ import           Control.Monad                  ( when )
 main :: IO ()
 main = putStrLn "hola" -}
 
+use :: String
+use = "Use: cabal run tp -- pathToFile opt\ncabal run tp -- -i\nopt = -i (interactive), -s (static)"
+
+
 main :: IO ()
 main = do
   args <- Env.getArgs
   case args of
-    [filename] -> do input <- readFile filename
-                     case parseComm filename input of
-                      Left err -> putStrLn $ "Parsing error:\n" ++ show err
-                      Right ast -> case eval ast noTrace of
-                                    Left err -> putStrLn $ renderError err
-                                    Right trace -> putStrLn $ renderTrace trace
-    _ -> putStrLn "Use: cabal run tp -- pathToFile"
+    [filename, opt] -> do input <- readFile filename
+                          case parseComm filename input of
+                            Left err -> putStrLn $ "Parsing error:\n" ++ show err
+                            Right ast -> case opt of
+                                          "-s" -> case eval ast noTrace of
+                                                    Left err -> putStrLn $ renderError err
+                                                    Right trace -> putStrLn $ renderTrace trace
+                                          "-i" -> case eval ast interactive of
+                                                    Left err -> putStrLn $ renderError err
+                                                    Right trace -> putStrLn $ renderTrace trace
+                                          _ -> putStrLn use
+    [opt] -> case opt of
+              "-i" -> putStrLn "ok"
+              _ -> putStrLn use
+    _ -> putStrLn use
     -- podría hacer otro patrón que sea [filename, option]? y que option sea una bandera tipo -i
 
 --  read-eval-print loop
