@@ -53,6 +53,11 @@ data Trace
   | TNil
   deriving (Show, Eq)
 
+type Mode = Nat -- en el caso interactivo se ve toda la traza de la aplicación de una función
+                -- es decir el paso a paso de cada función compuesta
+                -- si es un archivo, solo muestra los resultados
+
+
 
 {-
 Fun -> Fun Fun | Id

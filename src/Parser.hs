@@ -22,7 +22,7 @@ frl = makeTokenParser
     , commentEnd      = "*/"
     , commentLine     = "//"
     , opLetter        = char '='
-    , reservedNames   = ["skip"]
+    , reservedNames   = ["skip", "mode"]
     , reservedOpNames = [ "["
                         , "]"
                         , "<"

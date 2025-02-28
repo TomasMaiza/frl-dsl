@@ -1,12 +1,8 @@
 module Eval
-  ( evalFun
-  , eval
+  ( eval
   , Env
-  , initEnv
-  , runStateErrorTrace
-  , evalConcat
-  --, eval'
-  -- borrar todo y dejar solo eval y Env
+  , noTrace
+  , interactive
   )
 where
 
@@ -21,6 +17,13 @@ import           Data.Strict.Tuple
 import           Control.Monad                  ( liftM
                                                 , ap
                                                 )
+-- Valores de los modos
+
+noTrace :: Mode
+noTrace = 0
+
+interactive :: Mode
+interactive = 1
 
 -- Entornos
 type Env = M.Map Variable List
@@ -68,9 +71,10 @@ instance MonadState StateErrorTrace where
 
 -- Evaluador
 
-eval :: Comm -> Either Error Trace
-eval c = do (() :!: (_ :!: t)) <- runStateErrorTrace (stepCommStar c) initEnv initTrace
-            return t
+eval :: Comm -> Mode -> Either Error Trace
+eval c m = let env = M.insert "mode" (Unit m) initEnv
+           in do (() :!: (_ :!: t)) <- runStateErrorTrace (stepCommStar c) env initTrace
+                 return t
 
 -- Evalua multiples pasos de un comando, hasta alcanzar un Skip
 stepCommStar :: (MonadState m, MonadError m, MonadTrace m) => Comm -> m ()
@@ -81,14 +85,15 @@ stepCommStar c    = stepComm c >>= \c' -> stepCommStar c'
 stepComm :: (MonadState m, MonadError m, MonadTrace m) => Comm -> m Comm
 stepComm Skip = return Skip
 stepComm (LetList v ls) = do update v ls
-                             track $ TLetList v ls
                              return Skip
-stepComm (App f ls) = do xs <- evalFun f ls -- otra opción es trackear "f ls = xs"
-                         track $ TApp f ls xs
-                         return Skip
+stepComm (App f ls) = case ls of
+                        Var v -> do xs <- lookfor v
+                                    stepComm (App f xs)
+                        _ -> do xs <- evalFun f ls
+                                track $ TApp f ls xs
+                                return Skip
 stepComm (LetListFun v f ls) = do xs <- evalFun f ls
                                   update v xs
-                                  track $ TLetList v xs
                                   return Skip
 stepComm (Seq Skip c2) = stepComm c2 
 stepComm (Seq c1 c2) = do x <- stepComm c1
@@ -136,7 +141,6 @@ evalFun (Op RightSucc) ls = case ls of
                               Unit x -> return (Unit (x + 1))
                               Cons x zs y -> return (Cons x zs (y + 1))
                               Var v -> do xs <- lookfor v
-                                          --track (show v ++ " = " ++ show xs ++ "; ")
                                           evalFun (Op RightSucc) xs
 evalFun (Repeat f) ls = case ls of
                           Nil -> throw DomainErr
@@ -144,13 +148,14 @@ evalFun (Repeat f) ls = case ls of
                           Cons x _ y -> if x == y
                                         then return ls
                                         else do zs <- evalFun f ls
-                                                track $ TApp f ls zs
+                                                m <- lookfor "mode"
+                                                if m == (Unit noTrace) then track TNil else track $ TApp f ls zs
                                                 evalFun (Repeat f) zs
                           Var v -> do xs <- lookfor v
-                                      --track (show v ++ " = " ++ show xs ++ "; ")
                                       evalFun (Repeat f) xs
 evalFun (Comp f g) ls = do zs <- evalFun f ls
-                           track $ TApp f ls zs
+                           m <- lookfor "mode"
+                           if m == (Unit noTrace) then track TNil else track $ TApp f ls zs
                            evalFun g zs
 evalFun (Op MoveLeft) ls = evalFun (Comp (Op LeftZero) (Comp (Repeat (Op LeftSucc)) (Op RightDel))) ls
 evalFun (Op MoveRight) ls = evalFun (Comp (Op RightZero) (Comp (Repeat (Op RightSucc)) (Op LeftDel))) ls
