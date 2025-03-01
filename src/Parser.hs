@@ -38,11 +38,11 @@ frl = makeTokenParser
                         , "Sd"
                         , "Bi"
                         , "Bd"
-                        , "<->"
+                        , "(<->)"
                         , "Di"
                         , "Dd"
-                        , "->"
-                        , "<-"
+                        , "(->)"
+                        , "(<-)"
                         ]
     }
   )
@@ -80,9 +80,9 @@ parseOp = (do {reservedOp frl "0i"; return (Op LeftZero)})
           <|> (do {reservedOp frl "Sd"; return (Op RightSucc)})
           <|> (do {reservedOp frl "Di"; return (Op DupLeft)})
           <|> (do {reservedOp frl "Dd"; return (Op DupRight)})
-          <|> (do {reservedOp frl "<->"; return (Op Swap)})
-          <|> (do {reservedOp frl "<-"; return (Op MoveLeft)})
-          <|> (do {reservedOp frl "->"; return (Op MoveRight)})
+          <|> (do {reservedOp frl "(<->)"; return (Op Swap)})
+          <|> (do {reservedOp frl "(<-)"; return (Op MoveLeft)})
+          <|> (do {reservedOp frl "(->)"; return (Op MoveRight)})
           <|> (do {f <- parseRepeat; return f})
 
 parseRepeat :: Parser Fun

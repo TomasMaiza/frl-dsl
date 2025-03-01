@@ -3,6 +3,8 @@ module Eval
   , Env
   , noTrace
   , interactive
+  , initEnv
+  , intEval
   )
 where
 
@@ -71,10 +73,14 @@ instance MonadState StateErrorTrace where
 
 -- Evaluador
 
-eval :: Comm -> Mode -> Either Error Trace
+eval :: Comm -> Mode -> Either Error (Env, Trace)
 eval c m = let env = M.insert "mode" (Unit m) initEnv
-           in do (() :!: (_ :!: t)) <- runStateErrorTrace (stepCommStar c) env initTrace
-                 return t
+           in do (() :!: (e :!: t)) <- runStateErrorTrace (stepCommStar c) env initTrace
+                 return (e, t)
+
+intEval :: Comm -> Env -> Either Error (Env, Trace)
+intEval c e = do (() :!: (env :!: t)) <- runStateErrorTrace (stepCommStar c) e initTrace
+                 return (env, t)
 
 -- Evalua multiples pasos de un comando, hasta alcanzar un Skip
 stepCommStar :: (MonadState m, MonadError m, MonadTrace m) => Comm -> m ()
