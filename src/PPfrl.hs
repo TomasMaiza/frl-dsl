@@ -31,19 +31,19 @@ pListRec (Concat xs ys) = pListRec xs <> text "," <+> pListRec ys
 pListRec (Var v) = pVar v
 
 pFun :: Fun -> Doc
-pFun (Op LeftZero) = text "0i"
-pFun (Op RightZero) = text "0d"
-pFun (Op LeftDel) = text "Bi"
-pFun (Op RightDel) = text "Bd"
-pFun (Op LeftSucc) = text "Si"
-pFun (Op RightSucc) = text "Sd"
-pFun (Op MoveLeft) = text "<-"
-pFun (Op MoveRight) = text "->"
-pFun (Op DupLeft) = text "Di"
-pFun (Op DupRight) = text "Dd"
-pFun (Op Swap) = text "<->"
+pFun (Op LeftZero n) = text "0i" <> (if n == 1 then empty else int n)
+pFun (Op RightZero n) = text "0d" <> (if n == 1 then empty else int n)
+pFun (Op LeftDel n) = text "Bi" <> (if n == 1 then empty else int n)
+pFun (Op RightDel n) = text "Bd" <> (if n == 1 then empty else int n)
+pFun (Op LeftSucc n) = text "Si" <> (if n == 1 then empty else int n)
+pFun (Op RightSucc n) = text "Sd" <> (if n == 1 then empty else int n)
+pFun (Op MoveLeft n) = text "<-" <> (if n == 1 then empty else int n)
+pFun (Op MoveRight n) = text "->" <> (if n == 1 then empty else int n)
+pFun (Op DupLeft n) = text "Di" <> (if n == 1 then empty else int n)
+pFun (Op DupRight n) = text "Dd" <> (if n == 1 then empty else int n)
+pFun (Op Swap n) = text "<->" <> (if n == 1 then empty else int n)
 pFun (Repeat f) = text "<" <> pFun f <> text ">"
-pFun (Comp f g) = pFun f <+> pFun g
+pFun (Comp f g) = pFun f <+> pFun g -- tendría que hacer paréntesis para repetir composiciones
 
 pComm :: Comm -> Doc
 pComm Skip        = empty

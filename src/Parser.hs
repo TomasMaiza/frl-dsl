@@ -72,17 +72,17 @@ fun :: Parser Fun
 fun = chainr1 parseOp (return Comp)
 
 parseOp :: Parser Fun
-parseOp = (do {reservedOp frl "0i"; return (Op LeftZero)})
-          <|> (do {reservedOp frl "0d"; return (Op RightZero)})
-          <|> (do {reservedOp frl "Bi"; return (Op LeftDel)})
-          <|> (do {reservedOp frl "Bd"; return (Op RightDel)})
-          <|> (do {reservedOp frl "Si"; return (Op LeftSucc)})
-          <|> (do {reservedOp frl "Sd"; return (Op RightSucc)})
-          <|> (do {reservedOp frl "Di"; return (Op DupLeft)})
-          <|> (do {reservedOp frl "Dd"; return (Op DupRight)})
-          <|> (do {reservedOp frl "(<->)"; return (Op Swap)})
-          <|> (do {reservedOp frl "(<-)"; return (Op MoveLeft)})
-          <|> (do {reservedOp frl "(->)"; return (Op MoveRight)})
+parseOp = (do {reservedOp frl "0i"; try (do {n <- natural frl; return (Op LeftZero $ fromIntegral n)}) <|> return (Op LeftZero 1)})
+          <|> (do {reservedOp frl "0d"; try (do {n <- natural frl; return (Op RightZero $ fromIntegral n)}) <|> return (Op RightZero 1)})
+          <|> (do {reservedOp frl "Bi"; try (do {n <- natural frl; return (Op LeftDel $ fromIntegral n)}) <|> return (Op LeftDel 1)})
+          <|> (do {reservedOp frl "Bd"; try (do {n <- natural frl; return (Op RightDel $ fromIntegral n)}) <|> return (Op RightDel 1)})
+          <|> (do {reservedOp frl "Si"; try (do {n <- natural frl; return (Op LeftSucc $ fromIntegral n)}) <|> return (Op LeftSucc 1)})
+          <|> (do {reservedOp frl "Sd"; try (do {n <- natural frl; return (Op RightSucc $ fromIntegral n)}) <|> return (Op RightSucc 1)})
+          <|> (do {reservedOp frl "Di"; try (do {n <- natural frl; return (Op DupLeft $ fromIntegral n)}) <|> return (Op DupLeft 1)})
+          <|> (do {reservedOp frl "Dd"; try (do {n <- natural frl; return (Op DupRight $ fromIntegral n)}) <|> return (Op DupRight 1)})
+          <|> (do {reservedOp frl "(<->)"; try (do {n <- natural frl; return (Op Swap $ fromIntegral n)}) <|> return (Op Swap 1)})
+          <|> (do {reservedOp frl "(<-)"; try (do {n <- natural frl; return (Op MoveLeft $ fromIntegral n)}) <|> return (Op MoveLeft 1)})
+          <|> (do {reservedOp frl "(->)"; try (do {n <- natural frl; return (Op MoveRight $ fromIntegral n)}) <|> return (Op MoveRight 1)})
           <|> (do {f <- parseRepeat; return f})
 
 parseRepeat :: Parser Fun
