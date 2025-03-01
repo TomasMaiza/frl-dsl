@@ -39,8 +39,8 @@ pFun (Op LeftSucc) = text "Si"
 pFun (Op RightSucc) = text "Sd"
 pFun (Op MoveLeft) = text "<-"
 pFun (Op MoveRight) = text "->"
-pFun (Op DupLeft) = text "Dd"
-pFun (Op DupRight) = text "Di"
+pFun (Op DupLeft) = text "Di"
+pFun (Op DupRight) = text "Dd"
 pFun (Op Swap) = text "<->"
 pFun (Repeat f) = text "<" <> pFun f <> text ">"
 pFun (Comp f g) = pFun f <+> pFun g
@@ -62,6 +62,8 @@ pTrace (TApp f ls zs) = pFun f <+> pList ls <+> text "=" <+> pList zs
 pTrace (TList ls) = pList ls
 pTrace (TCons t1 t2) = pTrace t1 $$ pTrace t2
 pTrace TNil = empty
+pTrace TTrue = text "True"
+pTrace TFalse = text "False"
 
 renderComm :: Comm -> String
 renderComm = render . pComm

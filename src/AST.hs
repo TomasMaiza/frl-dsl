@@ -40,6 +40,8 @@ data Comm
   | LetList Variable List
   | LetListFun Variable Fun List
   | Seq Comm Comm
+  | Eq Fun List List -- solo compara entradas de la forma "f xs == ys"
+  | NEq Fun List List
   | Skip
   deriving (Show, Eq)
 
@@ -51,6 +53,8 @@ data Trace
   | TList List
   | TCons Trace Trace
   | TNil
+  | TTrue
+  | TFalse
   deriving (Show, Eq)
 
 type Mode = Nat -- en el caso interactivo se ve toda la traza de la aplicación de una función

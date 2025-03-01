@@ -98,7 +98,7 @@ comm :: Parser Comm
 comm = chainl1 comm' (do {reservedOp frl ";"; return Seq})
 
 comm' :: Parser Comm
-comm' = try parseSkip <|> try parseLet <|> parseApp
+comm' = try parseSkip <|> try parseLet <|> try parseEq <|> parseApp
 
 parseSkip :: Parser Comm
 parseSkip = do reserved frl "skip"
@@ -109,6 +109,13 @@ parseLet = do v <- identifier frl
               reservedOp frl "="
               try (do {f <- fun; ls <- list; return (LetListFun v f ls)})
                    <|> (do {ls <- list; return (LetList v ls)})
+
+parseEq :: Parser Comm
+parseEq = do f <- fun
+             xs <- list
+             op <- (reservedOp frl "==" >> return Eq) <|> (reservedOp frl "!=" >> return NEq)
+             ys <- list
+             return (op f xs ys)
 
 parseApp :: Parser Comm
 parseApp = do f <- fun

@@ -104,6 +104,24 @@ stepComm (LetListFun v f ls) = do xs <- evalFun f ls
 stepComm (Seq Skip c2) = stepComm c2 
 stepComm (Seq c1 c2) = do x <- stepComm c1
                           stepComm (Seq x c2)
+stepComm (Eq f xs ys) = do zs <- evalFun f xs
+                           track $ TApp f xs zs
+                           case ys of
+                              Var v -> do ys' <- lookfor v
+                                          ys'' <- evalConcat ys'
+                                          if zs == ys'' then track TTrue else track TFalse
+                              _ -> do ys' <- evalConcat ys
+                                      if zs == ys' then track TTrue else track TFalse
+                           return Skip
+stepComm (NEq f xs ys) = do zs <- evalFun f xs
+                            track $ TApp f xs zs
+                            case ys of
+                              Var v -> do ys' <- lookfor v
+                                          ys'' <- evalConcat ys'
+                                          if zs == ys'' then track TFalse else track TTrue
+                              _ -> do ys' <- evalConcat ys
+                                      if zs == ys' then track TFalse else track TTrue
+                            return Skip
 
 evalFun :: (MonadState m, MonadError m, MonadTrace m) => Fun -> List -> m List
 evalFun f ls@(Concat _ _) = do zs <- evalConcat ls
