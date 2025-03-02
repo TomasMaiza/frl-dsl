@@ -180,7 +180,11 @@ evalFun (Repeat f) ls = case ls of
 evalFun (Comp f g) ls = do zs <- evalFun f ls
                            m <- lookfor "mode"
                            if m == (Unit noTrace) then track TNil else track $ TApp f ls zs
-                           evalFun g zs
+                           case g of
+                            Comp _ _ -> evalFun g zs
+                            _ -> do zs' <- evalFun g zs -- si g es la última de la cadena trackeo su resultado
+                                    if m == (Unit noTrace) then track TNil else track $ TApp g zs zs'
+                                    return zs'
 evalFun (Op MoveLeft) ls = evalFun (Comp (Op LeftZero) (Comp (Repeat (Op LeftSucc)) (Op RightDel))) ls
 evalFun (Op MoveRight) ls = evalFun (Comp (Op RightZero) (Comp (Repeat (Op RightSucc)) (Op LeftDel))) ls
 evalFun (Op DupLeft) ls = evalFun (Comp (Op RightZero) (Comp (Repeat (Op RightSucc)) (Op MoveLeft))) ls

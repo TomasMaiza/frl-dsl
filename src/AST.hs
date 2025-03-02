@@ -29,7 +29,7 @@ data Op
 
 -- Funciones
 data Fun
-  = Op Op Nat
+  = Op Op
   | Repeat Fun
   | Comp Fun Fun
   deriving (Show, Eq)

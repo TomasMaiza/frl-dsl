@@ -72,6 +72,25 @@ fun :: Parser Fun
 fun = chainr1 parseOp (return Comp)
 
 parseOp :: Parser Fun
+parseOp = (do {reservedOp frl "0i"; try (do {n <- natural frl; return (compOp (Op LeftZero) n)}) <|> return (Op LeftZero)})
+          <|> (do {reservedOp frl "0d"; try (do {n <- natural frl; return (compOp (Op RightZero) n)}) <|> return (Op RightZero)})
+          <|> (do {reservedOp frl "Bi"; try (do {n <- natural frl; return (compOp (Op LeftDel) n)}) <|> return (Op LeftDel)})
+          <|> (do {reservedOp frl "Bd"; try (do {n <- natural frl; return (compOp (Op RightDel) n)}) <|> return (Op RightDel)})
+          <|> (do {reservedOp frl "Si"; try (do {n <- natural frl; return (compOp (Op LeftSucc) n)}) <|> return (Op LeftSucc)})
+          <|> (do {reservedOp frl "Sd"; try (do {n <- natural frl; return (compOp (Op RightSucc) n)}) <|> return (Op RightSucc)})
+          <|> (do {reservedOp frl "Di"; try (do {n <- natural frl; return (compOp (Op DupLeft) n)}) <|> return (Op DupLeft)})
+          <|> (do {reservedOp frl "Dd"; try (do {n <- natural frl; return (compOp (Op DupRight) n)}) <|> return (Op DupRight)})
+          <|> (do {reservedOp frl "(<->)"; try (do {n <- natural frl; return (compOp (Op Swap) n)}) <|> return (Op Swap)})
+          <|> (do {reservedOp frl "(<-)"; try (do {n <- natural frl; return (compOp (Op MoveLeft) n)}) <|> return (Op MoveLeft)})
+          <|> (do {reservedOp frl "(->)"; try (do {n <- natural frl; return (compOp (Op MoveRight) n)}) <|> return (Op MoveRight)})
+          <|> (do {f <- parseRepeat; return f})
+
+compOp :: Fun -> Integer -> Fun
+compOp op 1 = op
+compOp op n = Comp op (compOp op (n - 1)) 
+
+{-
+parseOp :: Parser Fun
 parseOp = (do {reservedOp frl "0i"; try (do {n <- natural frl; return (Op LeftZero $ fromIntegral n)}) <|> return (Op LeftZero 1)})
           <|> (do {reservedOp frl "0d"; try (do {n <- natural frl; return (Op RightZero $ fromIntegral n)}) <|> return (Op RightZero 1)})
           <|> (do {reservedOp frl "Bi"; try (do {n <- natural frl; return (Op LeftDel $ fromIntegral n)}) <|> return (Op LeftDel 1)})
@@ -83,7 +102,7 @@ parseOp = (do {reservedOp frl "0i"; try (do {n <- natural frl; return (Op LeftZe
           <|> (do {reservedOp frl "(<->)"; try (do {n <- natural frl; return (Op Swap $ fromIntegral n)}) <|> return (Op Swap 1)})
           <|> (do {reservedOp frl "(<-)"; try (do {n <- natural frl; return (Op MoveLeft $ fromIntegral n)}) <|> return (Op MoveLeft 1)})
           <|> (do {reservedOp frl "(->)"; try (do {n <- natural frl; return (Op MoveRight $ fromIntegral n)}) <|> return (Op MoveRight 1)})
-          <|> (do {f <- parseRepeat; return f})
+          <|> (do {f <- parseRepeat; return f}) -}
 
 parseRepeat :: Parser Fun
 parseRepeat = do reservedOp frl "<"
