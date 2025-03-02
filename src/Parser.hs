@@ -43,6 +43,8 @@ frl = makeTokenParser
                         , "Dd"
                         , "(->)"
                         , "(<-)"
+                        , "{"
+                        , "}"
                         ]
     }
   )
