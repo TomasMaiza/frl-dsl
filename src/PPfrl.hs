@@ -43,7 +43,7 @@ pFun (Op DupLeft) = text "Di"
 pFun (Op DupRight) = text "Dd"
 pFun (Op Swap) = text "(<->)"
 pFun (Repeat f) = text "<" <> pFun f <> text ">"
-pFun (Comp f g) = pFun f <+> pFun g -- tendría que hacer paréntesis para repetir composiciones
+pFun c@(Comp f g) = pFun f <+> pFun g
 
 pComm :: Comm -> Doc
 pComm Skip        = empty

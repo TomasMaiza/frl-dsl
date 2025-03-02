@@ -51,7 +51,8 @@ interactiveLoop line e = do putStr "> "
                             case input of
                               ":q" -> putStrLn "Bye!"
                               _ -> do case parseComm "<stdin>" input of
-                                        Left err -> putStrLn $ "Error de parsing: " ++ show err
+                                        Left err -> do putStrLn $ "Error de parsing: " ++ show err
+                                                       interactiveLoop (line + 1) e
                                         Right ast -> if line == 0
                                                      then case eval ast interactive of
                                                             Left err -> do putStrLn $ renderError err
