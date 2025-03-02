@@ -55,6 +55,8 @@ pComm (App f ls) = pFun f <+> pList ls
 pError :: Error -> Doc
 pError (UndefVar v) = text "Runtime error: variable" <+> doubleQuotes (pVar v) <+> text "undefined"
 pError (DomainErr ls f) = text "Runtime error: domain error at" <+> pComm (App f ls)
+pError (VarError v (VList _)) = text "Runtime error: expected function but" <+> doubleQuotes (pVar v) <+> text "is a list" 
+pError (VarError v (VFun _)) = text "Runtime error: expected list but" <+> doubleQuotes (pVar v) <+> text "is a function" 
 
 pTrace :: Trace -> Doc
 pTrace (TLetList v ls) = pVar v <+> text "=" <+> pList ls $$ empty

@@ -28,7 +28,7 @@ interactive :: Mode
 interactive = 1
 
 -- Entornos
-type Env = M.Map Variable List
+type Env = M.Map Variable Value
 
 -- Entorno nulo
 initEnv :: Env
@@ -65,7 +65,7 @@ instance MonadError StateErrorTrace where
 -- Instancia de MonadState para StateErrorTrace.
 instance MonadState StateErrorTrace where
   lookfor v = StateErrorTrace (\env t -> lookfor' v env t)
-    where lookfor' :: Variable -> Env -> Trace -> Either Error (Pair List (Pair Env Trace))
+    where lookfor' :: Variable -> Env -> Trace -> Either Error (Pair Value (Pair Env Trace))
           lookfor' v' s t = case M.lookup v' s of
                               Nothing -> Left (UndefVar v')
                               Just x -> Right (x :!: (s :!: t))
@@ -74,7 +74,7 @@ instance MonadState StateErrorTrace where
 -- Evaluador
 
 eval :: Comm -> Mode -> Either Error (Env, Trace)
-eval c m = let env = M.insert "mode" (Unit m) initEnv
+eval c m = let env = M.insert "mode" (VMode m) initEnv
            in do (() :!: (e :!: t)) <- runStateErrorTrace (stepCommStar c) env initTrace
                  return (e, t)
 
@@ -90,16 +90,18 @@ stepCommStar c    = stepComm c >>= \c' -> stepCommStar c'
 -- Evalua un paso de un comando
 stepComm :: (MonadState m, MonadError m, MonadTrace m) => Comm -> m Comm
 stepComm Skip = return Skip
-stepComm (LetList v ls) = do update v ls
+stepComm (LetList v ls) = do update v (VList ls)
                              return Skip
 stepComm (App f ls) = case ls of
                         Var v -> do xs <- lookfor v
-                                    stepComm (App f xs)
+                                    case xs of
+                                      VList ys -> stepComm (App f ys)
+                                      _ -> throw (VarError v xs)
                         _ -> do xs <- evalFun f ls
                                 track $ TApp f ls xs
                                 return Skip
 stepComm (LetListFun v f ls) = do xs <- evalFun f ls
-                                  update v xs
+                                  update v (VList xs)
                                   return Skip
 stepComm (Seq Skip c2) = stepComm c2 
 stepComm (Seq c1 c2) = do x <- stepComm c1
@@ -108,8 +110,10 @@ stepComm (Eq f xs ys) = do zs <- evalFun f xs
                            track $ TApp f xs zs
                            case ys of
                               Var v -> do ys' <- lookfor v
-                                          ys'' <- evalConcat ys'
-                                          if zs == ys'' then track TTrue else track TFalse
+                                          case ys' of
+                                            VList ls -> do ys'' <- evalConcat ls
+                                                           if zs == ys'' then track TTrue else track TFalse
+                                            _ -> throw (VarError v ys')
                               _ -> do ys' <- evalConcat ys
                                       if zs == ys' then track TTrue else track TFalse
                            return Skip
@@ -117,8 +121,10 @@ stepComm (NEq f xs ys) = do zs <- evalFun f xs
                             track $ TApp f xs zs
                             case ys of
                               Var v -> do ys' <- lookfor v
-                                          ys'' <- evalConcat ys'
-                                          if zs == ys'' then track TFalse else track TTrue
+                                          case ys' of
+                                            VList ls -> do ys'' <- evalConcat ls
+                                                           if zs == ys'' then track TFalse else track TTrue
+                                            _ -> throw (VarError v ys')
                               _ -> do ys' <- evalConcat ys
                                       if zs == ys' then track TFalse else track TTrue
                             return Skip
@@ -131,41 +137,53 @@ evalFun (Op LeftZero) ls = case ls of
                             Unit x -> return (Cons 0 Nil x)
                             Cons x zs y -> do cs <- evalConcat (Concat (Unit x) zs)
                                               return (Cons 0 cs y)
-                            Var v -> do xs <- lookfor v
-                                        evalFun (Op LeftZero) xs
+                            Var v -> do zs <- lookfor v
+                                        case zs of
+                                          VList xs -> evalFun (Op LeftZero) xs
+                                          _ -> throw (VarError v zs)
 evalFun (Op RightZero) ls = case ls of
                               Nil -> return (Unit 0)
                               Unit x -> return (Cons x Nil 0)
                               Cons x zs y -> do cs <- evalConcat (Concat zs (Unit y))
                                                 return (Cons x cs 0)
-                              Var v -> do xs <- lookfor v
-                                          evalFun (Op RightZero) xs
+                              Var v -> do zs <- lookfor v
+                                          case zs of
+                                            VList xs -> evalFun (Op RightZero) xs
+                                            _ -> throw (VarError v zs)
 evalFun (Op LeftDel) ls = case ls of
                             Nil -> throw (DomainErr ls (Op LeftDel))
                             Unit _ -> return Nil
                             Cons _ zs y -> do cs <- evalConcat (Concat zs (Unit y))
                                               return cs
-                            Var v -> do xs <- lookfor v
-                                        evalFun (Op LeftDel) xs
+                            Var v -> do zs <- lookfor v
+                                        case zs of
+                                          VList xs -> evalFun (Op LeftDel) xs
+                                          _ -> throw (VarError v zs)
 evalFun (Op RightDel) ls = case ls of
                             Nil -> throw (DomainErr ls (Op RightDel))
                             Unit _ -> return Nil
                             Cons x zs _ -> do cs <- evalConcat (Concat (Unit x) zs)
                                               return cs
-                            Var v -> do xs <- lookfor v
-                                        evalFun (Op RightDel) xs
+                            Var v -> do zs <- lookfor v
+                                        case zs of
+                                          VList xs -> evalFun (Op RightDel) xs
+                                          _ -> throw (VarError v zs)
 evalFun (Op LeftSucc) ls = case ls of
                             Nil -> throw (DomainErr ls (Op LeftSucc))
                             Unit x -> return (Unit (x + 1))
                             Cons x zs y -> return (Cons (x + 1) zs y)
-                            Var v -> do xs <- lookfor v
-                                        evalFun (Op LeftSucc) xs
+                            Var v -> do zs <- lookfor v
+                                        case zs of
+                                          VList xs -> evalFun (Op LeftSucc) xs
+                                          _ -> throw (VarError v zs)
 evalFun (Op RightSucc) ls = case ls of
                               Nil -> throw (DomainErr ls (Op RightSucc))
                               Unit x -> return (Unit (x + 1))
                               Cons x zs y -> return (Cons x zs (y + 1))
-                              Var v -> do xs <- lookfor v
-                                          evalFun (Op RightSucc) xs
+                              Var v -> do zs <- lookfor v
+                                          case zs of
+                                            VList xs -> evalFun (Op RightSucc) xs
+                                            _ -> throw (VarError v zs)
 evalFun (Repeat f) ls = case ls of
                           Nil -> throw (DomainErr ls (Repeat f))
                           Unit _ -> throw (DomainErr ls (Repeat f))
@@ -173,17 +191,19 @@ evalFun (Repeat f) ls = case ls of
                                         then return ls
                                         else do zs <- evalFun f ls
                                                 m <- lookfor "mode"
-                                                if m == (Unit noTrace) then track TNil else track $ TApp f ls zs
+                                                if m == (VMode noTrace) then track TNil else track $ TApp f ls zs
                                                 evalFun (Repeat f) zs
-                          Var v -> do xs <- lookfor v
-                                      evalFun (Repeat f) xs
+                          Var v -> do zs <- lookfor v
+                                      case zs of
+                                        VList xs -> evalFun (Repeat f) xs
+                                        _ -> throw (VarError v zs)
 evalFun (Comp f g) ls = do zs <- evalFun f ls
                            m <- lookfor "mode"
-                           if m == (Unit noTrace) then track TNil else track $ TApp f ls zs
+                           if m == (VMode noTrace) then track TNil else track $ TApp f ls zs
                            case g of
                             Comp _ _ -> evalFun g zs
                             _ -> do zs' <- evalFun g zs -- si g es la última de la cadena trackeo su resultado
-                                    if m == (Unit noTrace) then track TNil else track $ TApp g zs zs'
+                                    if m == (VMode noTrace) then track TNil else track $ TApp g zs zs'
                                     return zs'
 evalFun (Op MoveLeft) ls = evalFun (Comp (Op LeftZero) (Comp (Repeat (Op LeftSucc)) (Op RightDel))) ls
 evalFun (Op MoveRight) ls = evalFun (Comp (Op RightZero) (Comp (Repeat (Op RightSucc)) (Op LeftDel))) ls
@@ -193,8 +213,10 @@ evalFun (Op Swap) ls = case ls of
                         Nil -> throw (DomainErr ls (Op Swap))
                         Unit _ -> throw (DomainErr ls (Op Swap))
                         Cons x xs y -> return (Cons y xs x)
-                        Var v -> do xs <- lookfor v
-                                    evalFun (Op Swap) xs
+                        Var v -> do zs <- lookfor v
+                                    case zs of
+                                      VList xs -> evalFun (Op Swap) xs
+                                      _ -> throw (VarError v zs)
                                     
 evalConcat :: (MonadState m, MonadError m, MonadTrace m) => List -> m List
 evalConcat (Concat Nil ys) = return ys 

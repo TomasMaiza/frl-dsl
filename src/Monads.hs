@@ -8,9 +8,9 @@ import           AST
 -- Clase para representar mónadas con estado de variables
 class Monad m => MonadState m where
     -- Busca el valor de una variable
-    lookfor :: Variable -> m List
+    lookfor :: Variable -> m Value
     -- Cambia el valor de una variable
-    update :: Variable -> List -> m ()
+    update :: Variable -> Value -> m ()
 
 -- Clase para representar mónadas que lanzan errores
 class Monad m => MonadError m where

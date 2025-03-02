@@ -45,7 +45,9 @@ data Comm
   | Skip
   deriving (Show, Eq)
 
-data Error = DomainErr List Fun | UndefVar Variable deriving (Eq, Show)
+data Value = VList List | VFun Fun | VMode Mode deriving (Show, Eq)
+
+data Error = DomainErr List Fun | UndefVar Variable | VarError Variable Value deriving (Eq, Show)
 
 data Trace
   = TLetList Variable List
