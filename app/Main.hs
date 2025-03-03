@@ -43,15 +43,16 @@ main = do
                                           _ -> putStrLn use
     _ -> putStrLn use
 
-
 interactiveLoop :: Int -> Env -> IO ()
 interactiveLoop line e = do putStr "> " 
                             hFlush stdout
                             input <- getLine
-                            case input of
-                              ":q" -> putStrLn "Bye!"
+                            case words input of
+                              [":q"] -> putStrLn "Bye!"
+                              (":l":filename:_) -> do env <- useFile filename interactive e
+                                                      interactiveLoop (line + 1) env
                               _ -> do case parseComm "<stdin>" input of
-                                        Left err -> do putStrLn $ "Error de parsing: " ++ show err
+                                        Left err -> do putStrLn $ "Parsing error: " ++ show err
                                                        interactiveLoop (line + 1) e
                                         Right ast -> if line == 0
                                                      then case eval ast interactive of
@@ -64,3 +65,14 @@ interactiveLoop line e = do putStr "> "
                                                                            interactiveLoop (line + 1) e
                                                             Right (env, trace) -> do putStrLn $ renderTrace trace
                                                                                      interactiveLoop (line + 1) env
+
+useFile :: String -> Mode -> Env -> IO Env
+useFile filename mode e = do input <- readFile filename
+                             case parseComm filename input of
+                                Left err -> do putStrLn $ "Parsing error:\n" ++ show err
+                                               return e
+                                Right ast -> case eval ast mode of
+                                                Left err -> do putStrLn $ renderError err
+                                                               return e
+                                                Right (env, trace) -> do putStrLn $ renderTrace trace
+                                                                         return env
