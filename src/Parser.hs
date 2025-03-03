@@ -4,6 +4,8 @@ import           Text.ParserCombinators.Parsec
 import           Text.Parsec.Token
 import           Text.Parsec.Language           ( emptyDef )
 import           AST
+import           Data.Char
+import           Control.Monad (guard)
 
 -----------------------
 -- Función para facilitar el testing del parser.
@@ -22,7 +24,29 @@ frl = makeTokenParser
     , commentEnd      = "*/"
     , commentLine     = "//"
     , opLetter        = char '='
-    , reservedNames   = ["mode"]
+    , reservedNames   = ["mode"
+                        , "["
+                        , "]"
+                        , "<"
+                        , ">"
+                        , "="
+                        , "=="
+                        , "!="
+                        , ";"
+                        , ","
+                        , "0i"
+                        , "0d"
+                        , "Si"
+                        , "Sd"
+                        , "Bi"
+                        , "Bd"
+                        , "(<->)"
+                        , "Di"
+                        , "Dd"
+                        , "(->)"
+                        , "(<-)"
+                        , "{"
+                        , "}"]
     , reservedOpNames = [ "["
                         , "]"
                         , "<"
@@ -52,7 +76,7 @@ frl = makeTokenParser
 -- Parser de listas
 
 list :: Parser List
-list = do parseVar
+list = do parseVarList
        <|> brackets frl (try parseElems
                          <|> return Nil) 
 
@@ -61,17 +85,23 @@ parseNat = do x <- natural frl
               return $ Unit $ fromIntegral x
 
 parseElems :: Parser List
-parseElems = chainl1 (do {parseNat <|> parseVar}) (do {reservedOp frl ","; return Concat})
+parseElems = chainl1 (do {parseNat <|> parseVarList}) (do {reservedOp frl ","; return Concat})
 
-parseVar :: Parser List
-parseVar = do v <- identifier frl
-              return (Var v)
+parseVarList :: Parser List
+parseVarList = do v <- identifier frl
+                  guard (length v == 1 && isUpper (head v))
+                  return (Var v)
 
 
 -- Parser de funciones
 
 fun :: Parser Fun
-fun = chainr1 parseOp (return Comp)
+fun = do parseVarFun <|> chainr1 parseOp (return Comp)
+
+parseVarFun :: Parser Fun
+parseVarFun = do v <- identifier frl
+                 guard (length v > 1 && isLower (head v))
+                 return (FunVar v)
 
 parseOp :: Parser Fun
 parseOp = (do {reservedOp frl "0i"; try (do {n <- parsePot; return (compOp (Op LeftZero) n)}) <|> return (Op LeftZero)})
@@ -123,10 +153,11 @@ parseSkip = do reserved frl "skip"
                return Skip
 
 parseLet :: Parser Comm
-parseLet = do v <- identifier frl
+parseLet = do v <- identifier frl -- acá debería ver si cumple con la guarda de las variables de lista o de funciones
               reservedOp frl "="
-              try (do {f <- fun; ls <- list; return (LetListFun v f ls)})
-                   <|> (do {ls <- list; return (LetList v ls)})
+              try (do {guard (length v == 1 && isUpper (head v)); f <- fun; ls <- list; return (LetListFun v f ls)})
+                   <|> (do {guard (length v == 1 && isUpper (head v)); ls <- list; return (LetList v ls)}
+                   <|> (do {guard (length v > 1 && isLower (head v)); f <- fun; return (LetFun v f)}))
 
 parseEq :: Parser Comm
 parseEq = do f <- fun

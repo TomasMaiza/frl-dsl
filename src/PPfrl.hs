@@ -44,6 +44,7 @@ pFun (Op DupRight) = text "Dd"
 pFun (Op Swap) = text "(<->)"
 pFun (Repeat f) = text "<" <> pFun f <> text ">"
 pFun c@(Comp f g) = pFun f <+> pFun g
+pFun (FunVar v) = pVar v
 
 pComm :: Comm -> Doc
 pComm Skip        = empty
@@ -57,6 +58,7 @@ pError (UndefVar v) = text "Runtime error: variable" <+> doubleQuotes (pVar v) <
 pError (DomainErr ls f) = text "Runtime error: domain error at" <+> pComm (App f ls)
 pError (VarError v (VList _)) = text "Runtime error: expected function but" <+> doubleQuotes (pVar v) <+> text "is a list" 
 pError (VarError v (VFun _)) = text "Runtime error: expected list but" <+> doubleQuotes (pVar v) <+> text "is a function" 
+pError (VarError v (VMode _)) = text "Runtime error: trying to print mode"
 
 pTrace :: Trace -> Doc
 pTrace (TLetList v ls) = pVar v <+> text "=" <+> pList ls $$ empty

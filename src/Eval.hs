@@ -103,6 +103,8 @@ stepComm (App f ls) = case ls of
 stepComm (LetListFun v f ls) = do xs <- evalFun f ls
                                   update v (VList xs)
                                   return Skip
+stepComm (LetFun v f) = do update v (VFun f)
+                           return Skip
 stepComm (Seq Skip c2) = stepComm c2 
 stepComm (Seq c1 c2) = do x <- stepComm c1
                           stepComm (Seq x c2)
@@ -130,6 +132,10 @@ stepComm (NEq f xs ys) = do zs <- evalFun f xs
                             return Skip
 
 evalFun :: (MonadState m, MonadError m, MonadTrace m) => Fun -> List -> m List
+evalFun (FunVar v) ls = do g <- lookfor v
+                           case g of
+                            VFun f -> evalFun f ls
+                            _ -> throw (VarError v g)
 evalFun f ls@(Concat _ _) = do zs <- evalConcat ls
                                evalFun f zs
 evalFun (Op LeftZero) ls = case ls of
@@ -219,7 +225,7 @@ evalFun (Op Swap) ls = case ls of
                                       _ -> throw (VarError v zs)
                                     
 evalConcat :: (MonadState m, MonadError m, MonadTrace m) => List -> m List
-evalConcat (Concat Nil ys) = return ys 
+evalConcat (Concat Nil ys) = return ys
 evalConcat (Concat xs Nil) = return xs
 evalConcat (Concat (Unit x) (Unit y)) = return (Cons x Nil y)
 evalConcat (Concat (Unit x) (Cons x' ls y')) = do zs <- evalConcat (Concat (Unit x') ls)

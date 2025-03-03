@@ -32,6 +32,7 @@ data Fun
   = Op Op
   | Repeat Fun
   | Comp Fun Fun
+  | FunVar Variable
   deriving (Show, Eq)
 
 -- Comandos
@@ -39,6 +40,7 @@ data Comm
   = App Fun List
   | LetList Variable List
   | LetListFun Variable Fun List
+  | LetFun Variable Fun
   | Seq Comm Comm
   | Eq Fun List List -- solo compara entradas de la forma "f xs == ys"
   | NEq Fun List List
