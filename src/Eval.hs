@@ -225,6 +225,14 @@ evalFun (Op Swap) ls = case ls of
                                       _ -> throw (VarError v zs)
                                     
 evalConcat :: (MonadState m, MonadError m, MonadTrace m) => List -> m List
+evalConcat (Concat (Var v) ys) = do ls <- lookfor v
+                                    case ls of
+                                      VList xs -> evalConcat (Concat xs ys)
+                                      _ -> throw (VarError v ls)
+evalConcat (Concat xs (Var v)) = do ls <- lookfor v
+                                    case ls of
+                                      VList ys -> evalConcat (Concat xs ys)
+                                      _ -> throw (VarError v ls)
 evalConcat (Concat Nil ys) = return ys
 evalConcat (Concat xs Nil) = return xs
 evalConcat (Concat (Unit x) (Unit y)) = return (Cons x Nil y)
