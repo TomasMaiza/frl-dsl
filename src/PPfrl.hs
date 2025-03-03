@@ -55,6 +55,7 @@ pComm (App f ls) = pFun f <+> pList ls
 pComm (LetFun v f) = pVar v <+> text "=" <+> pFun f
 pComm (Eq f xs ys) = pFun f <+> pList xs <+> text "==" <+> pList ys
 pComm (NEq f xs ys) = pFun f <+> pList xs <+> text "!=" <+> pList ys
+pComm (Print v) = text "print" <+> pVar v
 
 pError :: Error -> Doc
 pError (UndefVar v) = text "Runtime error: variable" <+> doubleQuotes (pVar v) <+> text "undefined"
@@ -64,7 +65,8 @@ pError (VarError v (VFun _)) = text "Runtime error: expected list but" <+> doubl
 pError (VarError _ (VMode _)) = text "Runtime error: trying to print mode"
 
 pTrace :: Trace -> Doc
-pTrace (TLetList v ls) = pVar v <+> text "=" <+> pList ls $$ empty
+pTrace (TPrintList v ls) = pVar v <+> text "=" <+> pList ls $$ empty
+pTrace (TPrintFun v f) = pVar v <+> text "=" <+> pFun f $$ empty
 pTrace (TApp f ls zs) = pFun f <+> pList ls <+> text "=" <+> pList zs
 pTrace (TList ls) = pList ls
 pTrace (TCons t1 t2) = pTrace t1 $$ pTrace t2

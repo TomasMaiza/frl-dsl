@@ -46,7 +46,8 @@ frl = makeTokenParser
                         , "(->)"
                         , "(<-)"
                         , "{"
-                        , "}"]
+                        , "}"
+                        , "print"]
     , reservedOpNames = [ "["
                         , "]"
                         , "<"
@@ -69,6 +70,7 @@ frl = makeTokenParser
                         , "(<-)"
                         , "{"
                         , "}"
+                        , "print"
                         ]
     }
   )
@@ -146,7 +148,7 @@ comm :: Parser Comm
 comm = chainl1 comm' (do {reservedOp frl ";"; return Seq})
 
 comm' :: Parser Comm
-comm' = try parseSkip <|> try parseLet <|> try parseEq <|> parseApp
+comm' = try parseSkip <|> try parseLet <|> try parseEq <|> try parseShow <|> parseApp
 
 parseSkip :: Parser Comm
 parseSkip = do reserved frl "skip"
@@ -165,6 +167,12 @@ parseEq = do f <- fun
              op <- (reservedOp frl "==" >> return Eq) <|> (reservedOp frl "!=" >> return NEq)
              ys <- list
              return (op f xs ys)
+
+parseShow :: Parser Comm
+parseShow = do reservedOp frl "print"
+               v <- identifier frl
+               return (Print v)
+               
 
 parseApp :: Parser Comm
 parseApp = do f <- fun

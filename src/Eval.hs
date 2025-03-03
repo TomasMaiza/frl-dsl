@@ -130,6 +130,13 @@ stepComm (NEq f xs ys) = do zs <- evalFun f xs
                               _ -> do ys' <- evalConcat ys
                                       if zs == ys' then track TFalse else track TTrue
                             return Skip
+stepComm (Print v) = do x <- lookfor v
+                        case x of
+                          VList xs -> do ls <- evalConcat xs
+                                         track $ TPrintList v ls
+                          VFun f -> track $ TPrintFun v f
+                          _ -> throw $ VarError v x
+                        return Skip
 
 evalFun :: (MonadState m, MonadError m, MonadTrace m) => Fun -> List -> m List
 evalFun (FunVar v) ls = do g <- lookfor v
