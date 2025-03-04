@@ -47,7 +47,8 @@ frl = makeTokenParser
                         , "(<-)"
                         , "{"
                         , "}"
-                        , "print"]
+                        , "print"
+                        , "gen"]
     , reservedOpNames = [ "["
                         , "]"
                         , "<"
@@ -70,7 +71,6 @@ frl = makeTokenParser
                         , "(<-)"
                         , "{"
                         , "}"
-                        , "print"
                         ]
     }
   )
@@ -141,6 +141,28 @@ parsePot :: Parser Integer
 parsePot = do n <- natural frl
               if n > 0 then return n else fail ""
 
+-- Parser de listas genéricas
+
+genlist :: Parser GenList
+genlist = brackets frl (try parseGenElems
+                        <|> return GNil) 
+
+parseGenElems :: Parser GenList
+parseGenElems = chainl1 (do {try parseGenNat <|> try parseGenListVar <|> parseGenElemVar}) (do {reservedOp frl ","; return GConcat})
+
+parseGenNat :: Parser GenList
+parseGenNat = do x <- natural frl
+                 return $ GUnit $ GNat $ fromIntegral x
+
+parseGenListVar :: Parser GenList
+parseGenListVar = do v <- identifier frl
+                     guard (length v == 1 && isUpper (head v))
+                     return $ GList v
+
+parseGenElemVar :: Parser GenList
+parseGenElemVar = do v <- identifier frl
+                     guard (length v == 1 && isLower (head v))
+                     return $ GUnit $ GElem v
 
 -- Parser de comandos
 
@@ -148,14 +170,21 @@ comm :: Parser Comm
 comm = chainl1 comm' (do {reservedOp frl ";"; return Seq})
 
 comm' :: Parser Comm
-comm' = try parseSkip <|> try parseLet <|> try parseEq <|> try parseShow <|> parseApp
+comm' = try parseSkip <|> try parseGen <|> try parseLet <|> try parseEq <|> try parseShow <|> parseApp
 
 parseSkip :: Parser Comm
 parseSkip = do reserved frl "skip"
                return Skip
 
+parseGen :: Parser Comm
+parseGen = do reserved frl "gen"
+              f <- fun
+              ls <- genlist
+              n <- natural frl
+              return $ GenApp f ls (fromIntegral n)
+
 parseLet :: Parser Comm
-parseLet = do v <- identifier frl -- acá debería ver si cumple con la guarda de las variables de lista o de funciones
+parseLet = do v <- identifier frl
               reservedOp frl "="
               try (do {guard (length v == 1 && isUpper (head v)); f <- fun; ls <- list; return (LetListFun v f ls)})
                    <|> (do {guard (length v == 1 && isUpper (head v)); ls <- list; return (LetList v ls)}
@@ -169,7 +198,7 @@ parseEq = do f <- fun
              return (op f xs ys)
 
 parseShow :: Parser Comm
-parseShow = do reservedOp frl "print"
+parseShow = do reserved frl "print"
                v <- identifier frl
                return (Print v)
                

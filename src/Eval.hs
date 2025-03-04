@@ -5,6 +5,8 @@ module Eval
   , interactive
   , initEnv
   , intEval
+  , evalGen
+  , runStateErrorTrace
   )
 where
 
@@ -137,6 +139,9 @@ stepComm (Print v) = do x <- lookfor v
                           VFun f -> track $ TPrintFun v f
                           _ -> throw $ VarError v x
                         return Skip
+stepComm (GenApp f ls n) = do xs <- evalGen f ls
+                              track $ TGenApp f ls xs
+                              return Skip
 
 evalFun :: (MonadState m, MonadError m, MonadTrace m) => Fun -> List -> m List
 evalFun (FunVar v) ls = do g <- lookfor v
@@ -256,3 +261,115 @@ evalConcat (Concat xs@(Concat _ _) ys) = do xs' <- evalConcat xs
 evalConcat (Concat xs ys@(Concat _ _)) = do ys' <- evalConcat ys
                                             evalConcat (Concat xs ys')                                           
 evalConcat ls = return ls
+
+evalGen :: (MonadState m, MonadError m, MonadTrace m) => Fun -> GenList -> m GenList
+evalGen f ls@(GConcat _ _) = do xs <- evalGConcat ls
+                                evalGen f xs
+evalGen (Op LeftZero) ls = case ls of
+                            GNil -> return (GCons (GNat 0) GNil GNull) 
+                            GList xs -> return (GCons (GNat 0) (GList xs) GNull)
+                            GCons GNull xs y -> return (GCons (GNat 0) xs y)
+                            GCons _ _ _ -> return (GCons (GNat 0) ls GNull)
+                            GConcat _ _ -> return (GCons (GNat 0) ls GNull)
+                            GUnit n -> return (GCons (GNat 0) GNil n)
+evalGen (Op RightZero) ls = case ls of
+                              GNil -> return (GCons GNull GNil (GNat 0)) 
+                              GList xs -> return (GCons GNull (GList xs) (GNat 0))
+                              GCons x xs GNull -> return (GCons x xs (GNat 0))
+                              GCons _ _ _ -> return (GCons GNull ls (GNat 0))
+                              GConcat _ _ -> return (GCons GNull ls (GNat 0))
+                              GUnit n -> return (GCons n GNil (GNat 0))
+evalGen (Op LeftDel) ls = case ls of
+                            GNil -> throw (GenListErr ls (Op LeftDel))
+                            GList xs -> throw (GenListErr ls (Op LeftDel))
+                            GCons _ xs y -> return (GCons GNull xs y)
+                            GConcat _ _ -> throw (GenListErr ls (Op LeftDel))
+                            GUnit n -> return GNil
+evalGen (Op RightDel) ls = case ls of
+                            GNil -> throw (GenListErr ls (Op RightDel))
+                            GList xs -> throw (GenListErr ls (Op RightDel))
+                            GCons x xs _ -> return (GCons x xs GNull)
+                            GConcat _ _ -> throw (GenListErr ls (Op RightDel))
+                            GUnit n -> return GNil
+evalGen (Op LeftSucc) ls = case ls of
+                            GNil -> throw (GenListErr ls (Op LeftSucc))
+                            GList xs -> throw (GenListErr ls (Op LeftSucc))
+                            GCons x xs y -> case x of
+                                              GNull -> throw (GenListErr ls (Op LeftSucc))
+                                              GNat z -> return (GCons (GNat (z + 1)) xs y)
+                                              _ -> return (GCons (GSucc x) xs y)
+                            GConcat _ _ -> throw (GenListErr ls (Op LeftSucc))
+                            GUnit n -> case n of
+                                        GNull -> throw (GenListErr ls (Op LeftSucc))
+                                        GNat z -> return (GUnit $ GNat (z + 1))
+                                        _ -> return (GUnit (GSucc n))
+evalGen (Op RightSucc) ls = case ls of
+                              GNil -> throw (GenListErr ls (Op RightSucc))
+                              GList xs -> throw (GenListErr ls (Op RightSucc))
+                              GCons x xs y -> case y of
+                                                GNull -> throw (GenListErr ls (Op RightSucc))
+                                                GNat z -> return (GCons x xs (GNat (z + 1)))
+                                                _ -> return (GCons x xs (GSucc y))
+                              GConcat _ _ -> throw (GenListErr ls (Op RightSucc))
+                              GUnit n -> case n of
+                                          GNull -> throw (GenListErr ls (Op RightSucc))
+                                          GNat z -> return (GUnit $ GNat (z + 1))
+                                          _ -> return (GUnit (GSucc n))
+evalGen (Repeat f) ls = case ls of
+                          GNil -> throw (GenListErr ls (Repeat f))
+                          GList xs -> throw (GenListErr ls (Repeat f))
+                          GCons x xs y -> if x == y
+                                          then (case y of
+                                                  GNat _ -> return (GCons x xs x)
+                                                  _ -> return (GCons y xs y))
+                                          else do zs <- evalGen f ls
+                                                  track $ TGenApp f ls zs
+                                                  case zs of -- vuelvo tras n iteraciones (por ahora es 1)
+                                                    GCons x' ys y' -> case x' of
+                                                                        GNat _ -> return $ GCons y' ys y'
+                                                                        _ -> return $ GCons x' ys x'
+                                                    _ -> return zs
+                                                 --evalFun (Repeat f) zs
+                          GConcat _ _ -> throw (GenListErr ls (Repeat f))
+                          GUnit n -> throw (GenListErr ls (Repeat f))
+evalGen (Comp f g) ls = do zs <- evalGen f ls
+                           track $ TGenApp f ls zs
+                           case g of
+                            Comp _ _ -> evalGen g zs
+                            _ -> do zs' <- evalGen g zs -- si g es la última de la cadena trackeo su resultado
+                                    track $ TGenApp g zs zs'
+                                    return zs'
+evalGen (Op MoveLeft) ls = evalGen (Comp (Op LeftZero) (Comp (Repeat (Op LeftSucc)) (Op RightDel))) ls
+evalGen (Op MoveRight) ls = evalGen (Comp (Op RightZero) (Comp (Repeat (Op RightSucc)) (Op LeftDel))) ls
+evalGen (Op DupLeft) ls = evalGen (Comp (Op RightZero) (Comp (Repeat (Op RightSucc)) (Op MoveLeft))) ls
+evalGen (Op DupRight) ls = evalGen (Comp (Op LeftZero) (Comp (Repeat (Op LeftSucc)) (Op MoveRight))) ls
+evalGen (Op Swap) ls = case ls of
+                        GNil -> throw (GenListErr ls (Op Swap))
+                        GList xs -> throw (GenListErr ls (Op Swap))
+                        GCons x xs y -> return (GCons y xs x)
+                        GConcat _ _ -> throw (GenListErr ls (Op Swap))
+                        GUnit _ -> throw (GenListErr ls (Op Swap))
+
+evalGConcat :: (MonadState m, MonadError m, MonadTrace m) => GenList -> m GenList
+evalGConcat (GConcat xs GNil) = return xs
+evalGConcat (GConcat GNil ys) = return ys
+evalGConcat (GConcat (GUnit x) (GUnit y)) = return $ GCons x GNil y
+evalGConcat (GConcat (GUnit x) (GList xs)) = return $ GCons x (GList xs) GNull
+evalGConcat (GConcat (GList xs) (GUnit x)) = return $ GCons GNull (GList xs) x
+evalGConcat (GConcat (GUnit z) (GCons x ls y)) = return $ GCons z (GCons x ls GNull) y
+evalGConcat (GConcat (GCons x ls y) (GUnit z)) = return $ GCons x (GCons GNull ls y) z
+evalGConcat (GConcat (GCons x ls y) (GCons x' ls' y')) = do zs <- evalGConcat (GConcat ls (GUnit y))
+                                                            zs' <- evalGConcat (GConcat (GUnit x') ls')
+                                                            zs'' <- evalGConcat $ GConcat zs zs'
+                                                            return $ GCons x zs'' y'
+evalGConcat (GConcat (GCons x ls y) (GList xs)) = do zs <- evalGConcat $ GConcat ls (GUnit y)
+                                                     zs' <- evalGConcat $ GConcat zs (GList xs)
+                                                     return $ GCons x zs' GNull
+evalGConcat (GConcat (GList xs) (GCons x ls y)) = do zs <- evalGConcat $ GConcat (GList xs) (GUnit x)
+                                                     zs' <- evalGConcat $ GConcat zs ls
+                                                     return $ GCons GNull zs' y
+evalGConcat (GConcat xs@(GConcat _ _) ys) = do xs' <- evalGConcat xs
+                                               evalGConcat $ GConcat xs' ys
+evalGConcat (GConcat xs ys@(GConcat _ _)) = do ys' <- evalGConcat ys
+                                               evalGConcat $ GConcat xs ys'
+evalGConcat ls = return ls -- GList con GList no se puede reducir
