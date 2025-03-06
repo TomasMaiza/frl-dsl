@@ -51,7 +51,13 @@ data Comm
 
 data Value = VList List | VFun Fun | VMode Mode deriving (Show, Eq)
 
-data Error = DomainErr List Fun | UndefVar Variable | VarError Variable Value | GenListErr GenList Fun deriving (Eq, Show)
+data Error 
+  = DomainErr List Fun 
+  | UndefVar Variable 
+  | VarError Variable Value 
+  | GenListErr GenList Fun 
+  | RepeatErr Fun
+  deriving (Eq, Show)
 
 data Trace
   = TPrintList Variable List

@@ -65,6 +65,7 @@ pError (VarError v (VList _)) = text "Runtime error: expected function but" <+> 
 pError (VarError v (VFun _)) = text "Runtime error: expected list but" <+> doubleQuotes (pVar v) <+> text "is a function" 
 pError (VarError _ (VMode _)) = text "Runtime error: trying to print mode"
 pError (GenListErr ls f) = text "Runtime error: generic list error at" <+> pComm (GenApp f ls 1)
+pError (RepeatErr f) = text "Runtime error: " <+> pFun f -- completar y completar en genericas
 
 pTrace :: Trace -> Doc
 pTrace (TPrintList v ls) = pVar v <+> text "=" <+> pList ls $$ empty
