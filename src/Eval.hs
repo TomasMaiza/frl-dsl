@@ -321,13 +321,16 @@ evalGen (Repeat f) ls n = case ls of
                             GCons x xs y -> if x == y
                                             then (case y of
                                                     GNat _ -> return (GCons x xs x)
+                                                    GSucc _ -> return (GCons x xs x)
                                                     _ -> return (GCons y xs y))
                                             else (do zs <- evalGen f ls n
                                                      track $ TGenApp f ls zs
+                                                     zs' <- normalizeCons zs
                                                      if n == 1 
-                                                     then (case zs of -- vuelvo tras n iteraciones
+                                                     then (case zs' of -- vuelvo tras n iteraciones
                                                             GCons x' ys y' -> case x' of
                                                                                 GNat _ -> return $ GCons y' ys y'
+                                                                                GSucc _ -> return $ GCons y' ys y'
                                                                                 _ -> return $ GCons x' ys x'
                                                             _ -> return zs)
                                                      else evalGen (Repeat f) zs (n - 1))
@@ -375,3 +378,17 @@ evalGConcat (GConcat xs@(GConcat _ _) ys) = do xs' <- evalGConcat xs
 evalGConcat (GConcat xs ys@(GConcat _ _)) = do ys' <- evalGConcat ys
                                                evalGConcat $ GConcat xs ys'
 evalGConcat ls = return ls -- GList con GList no se puede reducir
+
+
+normalizeCons :: (MonadState m, MonadError m, MonadTrace m) => GenList -> m GenList
+normalizeCons (GCons GNull xs y) = do zs <- normalizeCons xs
+                                      case zs of
+                                        GCons x' ys y' -> return $ GCons x' (GConcat ys (GUnit y')) y
+                                        _ -> return zs
+normalizeCons (GCons x xs GNull) = do zs <- normalizeCons xs
+                                      case zs of
+                                        GCons x' ys y' -> return $ GCons x (GConcat (GUnit x') ys) y'
+                                        _ -> return zs
+normalizeCons (GCons x xs y) = do zs <- normalizeCons xs
+                                  return $ GCons x zs y
+normalizeCons ls = return ls
