@@ -50,10 +50,10 @@ interactiveLoop line e = do putStr "> "
                             case words input of
                               [":q"] -> putStrLn "Bye!"
                               (":l":filename:_) -> do env <- useFile filename interactive e
-                                                      interactiveLoop (line + 1) env
+                                                      interactiveLoop line env
                               _ -> do case parseComm "<stdin>" input of
                                         Left err -> do putStrLn $ "Parsing error: " ++ show err
-                                                       interactiveLoop (line + 1) e
+                                                       interactiveLoop line e
                                         Right ast -> if line == 0
                                                      then case eval ast interactive of
                                                             Left err -> do putStrLn $ renderError err

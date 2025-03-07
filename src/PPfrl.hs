@@ -54,18 +54,16 @@ pComm (Seq c1 c2) = pComm c1 <> semi $$ pComm c2
 pComm (App f ls) = pFun f <+> pList ls
 pComm (LetFun v f) = pVar v <+> text "=" <+> pFun f
 pComm (Eq f xs ys) = pFun f <+> pList xs <+> text "==" <+> pList ys
-pComm (NEq f xs ys) = pFun f <+> pList xs <+> text "!=" <+> pList ys
+pComm (NEq f xs ys) = pFun f <+> pList xs <+> text "≠" <+> pList ys
 pComm (Print v) = text "print" <+> pVar v
-pComm (GenApp f xs _) = pFun f <+> pGenList xs
 
 pError :: Error -> Doc
 pError (UndefVar v) = text "Runtime error: variable" <+> doubleQuotes (pVar v) <+> text "undefined"
 pError (DomainErr ls f) = text "Runtime error: domain error at" <+> pComm (App f ls)
 pError (VarError v (VList _)) = text "Runtime error: expected function but" <+> doubleQuotes (pVar v) <+> text "is a list" 
 pError (VarError v (VFun _)) = text "Runtime error: expected list but" <+> doubleQuotes (pVar v) <+> text "is a function" 
-pError (VarError _ (VMode _)) = text "Runtime error: trying to print mode"
-pError (GenListErr ls f) = text "Runtime error: generic list error at" <+> pComm (GenApp f ls 1)
-pError (RepeatErr f) = text "Runtime error: " <+> pFun f -- completar y completar en genericas
+pError (VarError _ (VMode _)) = text "Runtime error: trying to access mode or stop"
+pError (RepeatErr f) = text "Runtime error: repeat limit reached at " <+> pFun (Repeat f)
 
 pTrace :: Trace -> Doc
 pTrace (TPrintList v ls) = pVar v <+> text "=" <+> pList ls $$ empty
@@ -76,44 +74,6 @@ pTrace (TCons t1 t2) = pTrace t1 $$ pTrace t2
 pTrace TNil = empty
 pTrace TTrue = text "True"
 pTrace TFalse = text "False"
-pTrace (TGenApp f _ ys) = pFun f <+> text "|" <+> pGenList ys -- intento de hacer la tabla
-
-pGenElem :: GenElem -> Doc
-pGenElem GNull = text ""
-pGenElem (GElem v) = pVar v
-pGenElem (GSucc e) = let (v, n) = calcSuc e 1
-                     in pVar v <+> text "+" <+> int n
-pGenElem (GNat n) = int n
-
-calcSuc :: GenElem -> Int -> (Variable, Int)
-calcSuc (GElem v) n = (v, n)
-calcSuc (GSucc e) n = calcSuc e (n + 1)
-
-pGenList :: GenList -> Doc
-pGenList GNil = text "[]"
-pGenList (GList v) = brackets $ pVar v
-pGenList (GCons GNull ls GNull) = pGenList ls
-pGenList (GCons GNull GNil y) = brackets $ pGenElem y
-pGenList (GCons x GNil GNull) = brackets $ pGenElem x
-pGenList (GCons x GNil y) = brackets $ (pGenElem x <> text "," <+> pGenElem y)
-pGenList (GCons GNull ls y) = brackets $ (pGenListRec ls <> text "," <+> pGenElem y)
-pGenList (GCons x ls GNull) = brackets $ (pGenElem x <> text "," <+> pGenListRec ls)
-pGenList (GCons x ls y) = brackets $ (pGenElem x <> text "," <+> pGenListRec ls <> text "," <+> pGenElem y)
-pGenList (GConcat xs ys) = brackets $ (pGenListRec xs <> text "," <+> pGenListRec ys)
-pGenList (GUnit x) = brackets $ pGenElem x
-
-pGenListRec :: GenList -> Doc
-pGenListRec GNil = empty
-pGenListRec (GList v) = pVar v
-pGenListRec (GCons GNull ls GNull) = pGenListRec ls
-pGenListRec (GCons GNull GNil y) = pGenElem y
-pGenListRec (GCons x GNil GNull) = pGenElem x
-pGenListRec (GCons x GNil y) = pGenElem x <> text "," <+> pGenElem y
-pGenListRec (GCons GNull ls y) = pGenListRec ls <> text "," <+> pGenElem y
-pGenListRec (GCons x ls GNull) = pGenElem x <> text "," <+> pGenListRec ls
-pGenListRec (GCons x ls y) = pGenElem x <> text "," <+> pGenListRec ls <> text "," <+> pGenElem y
-pGenListRec (GConcat xs ys) = pGenListRec xs <> text "," <+> pGenListRec ys
-pGenListRec (GUnit x) = pGenElem x
 
 renderComm :: Comm -> String
 renderComm = render . pComm
@@ -129,9 +89,3 @@ renderTrace = render . pTrace
 
 renderError :: Error -> String
 renderError = render . pError
-
-renderGenElem :: GenElem -> String
-renderGenElem = render . pGenElem
-
-renderGenList :: GenList -> String
-renderGenList = render. pGenList
