@@ -4,6 +4,8 @@ import AST
 import Eval
 import Parser ( parseComm )
 import PPfrl
+import Test ( parserTest )
+
 import           System.Console.GetOpt
 import qualified System.Environment            as Env
 import           System.Exit

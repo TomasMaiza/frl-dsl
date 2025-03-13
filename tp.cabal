@@ -19,7 +19,7 @@ common warnings
 executable tp
     import:           warnings
     main-is:          Main.hs
-    other-modules:    AST, Eval, Monads, Parser, PPfrl
+    other-modules:    AST, Eval, Monads, Parser, PPfrl, Test
     -- other-extensions:
     default-extensions: TypeOperators
     build-depends:    base ^>=4.17.2.1, strict, containers, mtl, parsec, pretty
