@@ -34,6 +34,7 @@ type Env = M.Map Variable Value
 initEnv :: Env
 initEnv = M.empty
 
+-- Traza nula
 initTrace :: Trace
 initTrace = TNil
 
@@ -72,13 +73,16 @@ instance MonadState StateErrorTrace where
   update v i = StateErrorTrace (\env t -> return (() :!: (M.insert v i env :!: t)))
 
 -- Evaluador
-
+-- eval toma un comando y el modo de ejecución del programa, inserta el modo al entorno y evalúa
+-- el comando. Retorna un error o un par (Entorno, Traza).
 eval :: Comm -> Mode -> Either Error (Env, Trace)
 eval c m = let env' = M.insert "mode" (VMode m) initEnv
                env = M.insert "stop" (VMode 100) env' -- variable para finalizar repeticiones
            in do (() :!: (e :!: t)) <- runStateErrorTrace (stepCommStar c) env initTrace
                  return (e, t)
 
+-- Evaluador para el modo interactivo. En lugar del modo, toma en entorno que resultó de la última
+-- evaluación.
 intEval :: Comm -> Env -> Either Error (Env, Trace)
 intEval c e = do (() :!: (env :!: t)) <- runStateErrorTrace (stepCommStar c) e initTrace
                  return (env, t)
@@ -91,7 +95,8 @@ stepCommStar c    = stepComm c >>= \c' -> stepCommStar c'
 -- Evalua un paso de un comando
 stepComm :: (MonadState m, MonadError m, MonadTrace m) => Comm -> m Comm
 stepComm Skip = return Skip
-stepComm (LetList v ls) = do update v (VList ls)
+stepComm (LetList v ls) = do xs <- evalConcat ls
+                             update v (VList xs)
                              return Skip
 stepComm (App f ls) = case ls of
                         Var v -> do xs <- lookfor v
@@ -139,6 +144,7 @@ stepComm (Print v) = do x <- lookfor v
                           _ -> throw $ VarError v x
                         return Skip
 
+-- Evalúa la aplicación de una función en una lista.
 evalFun :: (MonadState m, MonadError m, MonadTrace m) => Fun -> List -> m List
 evalFun (FunVar v) ls = do g <- lookfor v
                            case g of
@@ -235,7 +241,9 @@ evalFun (Op Swap) ls = case ls of
                                       VList xs -> evalFun (Op Swap) xs
                                       _ -> throw (VarError v zs)
                         _ -> throw (DomainErr ls (Op Swap))
-                                    
+
+-- Transforma una lista construida con Concat en una construida con Cons, que tiene acceso eficiente
+-- al primer y último elemento.                   
 evalConcat :: (MonadState m, MonadError m, MonadTrace m) => List -> m List
 evalConcat (Concat (Var v) ys) = do ls <- lookfor v
                                     case ls of

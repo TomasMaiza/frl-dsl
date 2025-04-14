@@ -48,8 +48,10 @@ data Comm
   | Skip
   deriving (Show, Eq)
 
+-- Valores para el entorno
 data Value = VList List | VFun Fun | VMode Mode deriving (Show, Eq)
 
+-- Errores
 data Error 
   = DomainErr List Fun 
   | UndefVar Variable 
@@ -57,6 +59,7 @@ data Error
   | RepeatErr Fun
   deriving (Eq, Show)
 
+-- Traza
 data Trace
   = TPrintList Variable List
   | TPrintFun Variable Fun

@@ -52,7 +52,7 @@ interactiveLoop line e = do putStr "> "
                             case words input of
                               [":q"] -> putStrLn "Bye!"
                               (":l":filename:_) -> do env <- useFile filename interactive e
-                                                      interactiveLoop line env
+                                                      interactiveLoop (line + 1) env
                               _ -> do case parseComm "<stdin>" input of
                                         Left err -> do putStrLn $ "Parsing error: " ++ show err
                                                        interactiveLoop line e
@@ -78,3 +78,4 @@ useFile filename mode e = do input <- readFile filename
                                                                return e
                                                 Right (env, trace) -> do putStrLn $ renderTrace trace
                                                                          return env
+

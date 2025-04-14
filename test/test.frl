@@ -1,7 +1,0 @@
-moveleft = 0i <Si> Bd;
-X = [1, 2, 3, 4];
-moveleft X == [4, 1, 2, 3];
-swap = (->) 0i (<-) 0i < Si (->) (->) Si (<-) (<-) > Bd Bi (->);
-swappot = (->) 0i (<-) 0i < Si (->) 2 Si (<-) 2 > Bd Bi (->);
-swap X == [4, 2, 3, 1];
-swappot X == [4, 2, 3, 1]
