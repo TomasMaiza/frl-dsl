@@ -251,13 +251,13 @@ $${\over Concat~ls~Nil \rightarrow ls}~\text{CONCAT}_1$$
 
 $${\over Concat~Nil~ls \rightarrow ls}~\text{CONCAT}_2$$
 
-$${\over (Unit~x)~(Unit~y) \rightarrow Cons~x~Nil~y}~\text{CONCAT}_3$$
+$${\over Concat~(Unit~x)~(Unit~y) \rightarrow Cons~x~Nil~y}~\text{CONCAT}_3$$
 
-$${\over (Unit~x)~(Cons~x'~ls~y') \rightarrow Cons~x~(Concat~(Unit~x')~ls)~y'}~\text{CONCAT}_4$$
+$${\over Concat~(Unit~x)~(Cons~x'~ls~y') \rightarrow Cons~x~(Concat~(Unit~x')~ls)~y'}~\text{CONCAT}_4$$
 
-$${\over (Cons~x~ls~y)~(Unit~z) \rightarrow Cons~x~(Concat~ls~(Unit~y))~z}~\text{CONCAT}_5$$
+$${\over Concat~(Cons~x~ls~y)~(Unit~z) \rightarrow Cons~x~(Concat~ls~(Unit~y))~z}~\text{CONCAT}_5$$
 
-$${\over (Cons~x~ls~y)~(Cons~x'~ls'~y') \rightarrow Cons~x~(Concat~(Concat~ls~(Unit~y))~(Concat~(Unit~x')~ls'))~y'}~\text{CONCAT}_6$$
+$${\over Concat~(Cons~x~ls~y)~(Cons~x'~ls'~y') \rightarrow Cons~x~(Concat~(Concat~ls~(Unit~y))~(Concat~(Unit~x')~ls'))~y'}~\text{CONCAT}_6$$
 
 ## LeftZero
 
