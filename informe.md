@@ -2,7 +2,7 @@
 ---
 title: "TP FINAL - ANALISIS DE LENGUAJES DE PROGRAMACIÓN"
 author: Tomás Maiza (M-7116/1)
-date: 04/2025
+date: 15/04/2025
 geometry: margin=2cm
 output: pdf_document
 header-includes:
@@ -139,43 +139,38 @@ Con '//' podemos hacer un comentario de una línea. Los comentarios que abarquen
 
 La carpeta del proyecto cuenta con la siguiente estructura:
 
-app/
-├─ Main.hs
-src/
-ejemplos/
-CHANGELOG.md
+    .
 
+    |---- tp.cabal
 
+    |---- informe.pdf
 
-.
+    |---- app/
 
-|-- app
+    |   |---- Test.hs
 
-|   `-- Main.hs
+    |   |---- Main.hs
 
-|-- src
+    |---- ejemplos/
 
-|   |-- AST.hs
+    |   |---- variablesListas.frl
 
-|   |-- EvalAux.hs
+    |   |---- variablesFuncionesListas.frl
 
-|   |-- Eval.hs
+    |   |---- test.frl
 
-|   |-- Monads.hs
+    |---- src/
 
-|   |-- Parser.hs
+        |---- Eval.hs
 
-|   `-- PPfrl.hs
+        |---- Monads.hs
 
-|-- ejemplos
+        |---- PPfrl.hs
 
-|   |-- test.frl
+        |---- Parser.hs
 
-|   |-- variablesFuncionesListas.frl
+        |---- AST.hs
 
-|   `-- variablesListas.frl
-
-`-- tp.cabal
 
 # Características del proyecto
 
